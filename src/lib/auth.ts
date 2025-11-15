@@ -183,7 +183,8 @@ export async function updateUserCredits(
     const { db } = await connectToDatabase();
     
     // Start transaction
-    const session = (await clientPromise).startSession();
+    const client = await clientPromise;
+    const session = client.startSession();
     
     try {
       await session.withTransaction(async () => {

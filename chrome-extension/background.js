@@ -374,25 +374,34 @@ async function checkForUpdates() {
       if (isNewerVersion(latestVersion, currentVersion)) {
         console.log(`Update available: ${currentVersion} -> ${latestVersion}`);
         
-        // Show update notification with proper error handling
+        // Show update notification with permission check
         try {
-          const notificationOptions = {
-            type: 'basic',
-            title: `Xchangee Update v${latestVersion}`,
-            message: `${data.releaseNotes || 'Latest features and improvements'} - Updating in 5 seconds...`
-          };
-          
-          console.log('Creating notification with options:', notificationOptions);
-          
-          chrome.notifications.create('xchangee-update-available', notificationOptions, (notificationId) => {
-            if (chrome.runtime.lastError) {
-              console.log('Notification creation failed:', chrome.runtime.lastError.message);
+          // Check notification permission first
+          chrome.notifications.getPermissionLevel((level) => {
+            console.log('Notification permission level:', level);
+            
+            if (level === 'granted') {
+              const notificationOptions = {
+                type: 'basic',
+                title: `Xchangee Update v${latestVersion}`,
+                message: `${data.releaseNotes || 'Latest features and improvements'} - Updating in 5 seconds...`
+              };
+              
+              console.log('Creating notification with options:', notificationOptions);
+              
+              chrome.notifications.create('xchangee-update-available', notificationOptions, (notificationId) => {
+                if (chrome.runtime.lastError) {
+                  console.log('Notification creation failed:', chrome.runtime.lastError.message);
+                } else {
+                  console.log('Notification created successfully:', notificationId);
+                }
+              });
             } else {
-              console.log('Notification created successfully:', notificationId);
+              console.log('Notification permission not granted, skipping notification');
             }
           });
         } catch (err) {
-          console.log('Notification try-catch error:', err);
+          console.log('Notification permission check failed:', err);
         }
         
         // Store update info
@@ -424,21 +433,27 @@ async function performAutoUpdate(version, updateData) {
     
     // Show updating notification
     try {
-      const notificationOptions = {
-        type: 'basic',
-        title: 'Xchangee Updating...',
-        message: `Installing v${version}. Please wait...`
-      };
-      
-      chrome.notifications.create('xchangee-updating', notificationOptions, (notificationId) => {
-        if (chrome.runtime.lastError) {
-          console.log('Updating notification failed:', chrome.runtime.lastError.message);
+      chrome.notifications.getPermissionLevel((level) => {
+        if (level === 'granted') {
+          const notificationOptions = {
+            type: 'basic',
+            title: 'Xchangee Updating...',
+            message: `Installing v${version}. Please wait...`
+          };
+          
+          chrome.notifications.create('xchangee-updating', notificationOptions, (notificationId) => {
+            if (chrome.runtime.lastError) {
+              console.log('Updating notification failed:', chrome.runtime.lastError.message);
+            } else {
+              console.log('Updating notification created:', notificationId);
+            }
+          });
         } else {
-          console.log('Updating notification created:', notificationId);
+          console.log('Skipping updating notification - permission not granted');
         }
       });
     } catch (err) {
-      console.log('Updating notification try-catch error:', err);
+      console.log('Updating notification permission check failed:', err);
     }
 
     // Download the latest extension files
@@ -591,21 +606,27 @@ chrome.runtime.onStartup.addListener(async () => {
 function showAuthSuccessNotification(userData) {
   const displayName = userData.displayName || userData.username || 'User';
   try {
-    const notificationOptions = {
-      type: 'basic',
-      title: 'Xchangee Extension Connected!',
-      message: `Welcome ${displayName}! Your extension is now connected and ready to earn credits automatically.`
-    };
-    
-    chrome.notifications.create('xchangee-auth-success', notificationOptions, (notificationId) => {
-      if (chrome.runtime.lastError) {
-        console.log('Auth notification failed:', chrome.runtime.lastError.message);
+    chrome.notifications.getPermissionLevel((level) => {
+      if (level === 'granted') {
+        const notificationOptions = {
+          type: 'basic',
+          title: 'Xchangee Extension Connected!',
+          message: `Welcome ${displayName}! Your extension is now connected and ready to earn credits automatically.`
+        };
+        
+        chrome.notifications.create('xchangee-auth-success', notificationOptions, (notificationId) => {
+          if (chrome.runtime.lastError) {
+            console.log('Auth notification failed:', chrome.runtime.lastError.message);
+          } else {
+            console.log('Auth notification created:', notificationId);
+          }
+        });
       } else {
-        console.log('Auth notification created:', notificationId);
+        console.log('Skipping auth notification - permission not granted');
       }
     });
   } catch (err) {
-    console.log('Auth notification try-catch error:', err);
+    console.log('Auth notification permission check failed:', err);
   }
 }
 

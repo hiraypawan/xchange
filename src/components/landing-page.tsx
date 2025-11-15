@@ -506,12 +506,12 @@ export default function LandingPage() {
               <p className="text-sm text-gray-400">
                 Developed by{' '}
                 <a 
-                  href="https://github.com/W@b_Gen" 
+                  href="https://x.com/W3b_Gen" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-primary-400 hover:text-primary-300 transition-colors"
                 >
-                  W@b_Gen
+                  @W3b_Gen
                 </a>
               </p>
               <p className="text-sm text-gray-400">
@@ -527,7 +527,7 @@ export default function LandingPage() {
               </p>
             </div>
             <p className="text-sm text-gray-500">
-              © 2024 Xchangee. All rights reserved.
+              © 2025 Xchangee. All rights reserved.
             </p>
           </div>
         </div>

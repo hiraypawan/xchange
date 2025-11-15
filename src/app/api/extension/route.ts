@@ -70,6 +70,20 @@ type VersionInfo = {
 };
 
 const VERSION_HISTORY: Record<string, VersionInfo> = {
+  '1.3.8': {
+    releaseNotes: 'NOTIFICATION STABILITY FIXES: Wrapped all notification calls in try-catch • Eliminated notification errors • Enhanced error handling',
+    features: [
+      'Wrapped all chrome.notifications.create calls in try-catch blocks',
+      'Fixed notification property errors with enhanced error handling',
+      'Simplified notification messages to prevent character limit issues',
+      'Added comprehensive notification error logging for debugging',
+      'Enhanced notification system reliability across all update scenarios',
+      'Improved error recovery for failed notification attempts',
+      'Better notification fallback mechanisms',
+      'Eliminated all "missing required properties" notification errors'
+    ],
+    releaseDate: new Date().toISOString()
+  },
   '1.3.7': {
     releaseNotes: 'API FIXES: Resolved posts feed 400 errors • Reduced console noise • Improved message filtering',
     features: [
@@ -82,7 +96,7 @@ const VERSION_HISTORY: Record<string, VersionInfo> = {
       'Cleaned up console output for better debugging experience',
       'Improved overall application stability and user experience'
     ],
-    releaseDate: '2025-11-15T12:13:43.849Z'
+    releaseDate: '2025-11-15T18:15:00.000Z'
   },
   '1.3.6': {
     releaseNotes: 'NOTIFICATION ERROR FIXES: Resolved Chrome notification icon issues • Clean notification system • No more errors',

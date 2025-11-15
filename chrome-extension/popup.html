@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xchangee</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Loading state -->
+    <div id="loading" class="loading-container">
+      <div class="loading-spinner"></div>
+      <p>Loading Xchangee...</p>
+    </div>
+
+    <!-- Not authenticated state -->
+    <div id="auth-required" class="auth-container" style="display: none;">
+      <div class="logo">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+        </svg>
+        <h1>Xchangee</h1>
+      </div>
+      <p>Sign in to start earning credits through engagement</p>
+      <button id="login-btn" class="btn-primary">
+        Sign in with Twitter
+      </button>
+    </div>
+
+    <!-- Authenticated state -->
+    <div id="main-content" class="main-container" style="display: none;">
+      <!-- Header -->
+      <div class="header">
+        <div class="logo-small">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+          <span>Xchangee</span>
+        </div>
+        <button id="settings-btn" class="btn-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v6m0 6v6M1 12h6m6 0h6"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- User Info -->
+      <div class="user-info">
+        <div class="user-avatar">
+          <img id="user-avatar" src="" alt="User" style="display: none;">
+          <div id="user-initials" class="initials"></div>
+        </div>
+        <div class="user-details">
+          <p id="user-name" class="user-name">Loading...</p>
+          <p id="user-credits" class="user-credits">0 credits</p>
+        </div>
+      </div>
+
+      <!-- Quick Stats -->
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-label">Today</span>
+          <span id="today-earnings" class="stat-value">+0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Active</span>
+          <span id="auto-engage-status" class="stat-value">OFF</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Queue</span>
+          <span id="queue-count" class="stat-value">0</span>
+        </div>
+      </div>
+
+      <!-- Auto-engage toggle -->
+      <div class="feature-section">
+        <div class="feature-header">
+          <h3>Auto-Engage</h3>
+          <label class="toggle">
+            <input type="checkbox" id="auto-engage-toggle">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <p class="feature-description">
+          Automatically engage with posts to earn credits
+        </p>
+      </div>
+
+      <!-- Opportunities -->
+      <div class="opportunities-section">
+        <div class="section-header">
+          <h3>Opportunities</h3>
+          <button id="refresh-btn" class="btn-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+              <path d="M8 12l5 5-5-5 5-5-5 5"/>
+            </svg>
+          </button>
+        </div>
+        <div id="opportunities-list" class="opportunities-list">
+          <!-- Opportunities will be loaded here -->
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions-section">
+        <button id="open-dashboard-btn" class="btn-secondary">
+          Open Dashboard
+        </button>
+        <button id="logout-btn" class="btn-text">
+          Sign Out
+        </button>
+      </div>
+    </div>
+
+    <!-- Settings panel -->
+    <div id="settings-panel" class="settings-container" style="display: none;">
+      <div class="settings-header">
+        <button id="back-btn" class="btn-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5m7-7l-7 7 7 7"/>
+          </svg>
+        </button>
+        <h2>Settings</h2>
+      </div>
+
+      <div class="settings-content">
+        <div class="setting-group">
+          <label>Rate Limit Delay (seconds)</label>
+          <input type="number" id="rate-limit-input" min="1" max="60" value="3">
+          <small>Time between automatic engagements</small>
+        </div>
+
+        <div class="setting-group">
+          <label>Max Engagements per Hour</label>
+          <input type="number" id="max-engagements-input" min="1" max="100" value="20">
+          <small>Limit automatic engagements per hour</small>
+        </div>
+
+        <div class="setting-group">
+          <label>Engagement Types</label>
+          <div class="checkbox-group">
+            <label class="checkbox-item">
+              <input type="checkbox" id="engage-like" checked>
+              <span>Likes</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="engage-retweet" checked>
+              <span>Retweets</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="engage-reply" checked>
+              <span>Replies</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="engage-follow" checked>
+              <span>Follows</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <label class="checkbox-item">
+            <input type="checkbox" id="working-hours-only">
+            <span>Working hours only (9 AM - 6 PM)</span>
+          </label>
+        </div>
+
+        <button id="save-settings-btn" class="btn-primary">
+          Save Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

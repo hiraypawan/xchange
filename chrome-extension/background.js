@@ -26,6 +26,12 @@ async function initializeExtension() {
     authToken = data.authToken;
     userId = data.userId;
     
+    console.log('Extension initialized with:', {
+      hasAuthToken: !!authToken,
+      userId: userId,
+      hasUserData: !!data.userData
+    });
+    
     // Set default settings
     if (!data.settings) {
       const defaultSettings = {
@@ -40,6 +46,9 @@ async function initializeExtension() {
       
       await chrome.storage.local.set({ settings: defaultSettings });
     }
+    
+    // Send heartbeat to any open website tabs
+    sendHeartbeatToWebsite();
   } catch (error) {
     console.error('Failed to initialize extension:', error);
   }
@@ -72,6 +81,9 @@ async function storeAuthData(token, userIdValue, userData) {
       });
     }
     
+    // Send updated heartbeat to website
+    sendHeartbeatToWebsite();
+    
     return true;
   } catch (error) {
     console.error('Failed to store auth data:', error);
@@ -88,12 +100,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         .catch(error => sendResponse({ error: error.message }));
       return true; // Async response
     case 'GET_AUTH_STATUS':
-      sendResponse({ 
-        isAuthenticated: !!authToken, 
-        userId,
-        authToken 
+      // Always check storage for latest auth status
+      chrome.storage.local.get(['authToken', 'userId', 'userData']).then(data => {
+        authToken = data.authToken;
+        userId = data.userId;
+        sendResponse({ 
+          isAuthenticated: !!authToken, 
+          userId,
+          userData: data.userData
+        });
       });
-      break;
+      return true; // Async response
       
     case 'SET_AUTH':
       authToken = request.authToken;
@@ -467,7 +484,31 @@ function showAuthSuccessNotification(userData) {
   });
 }
 
-// Keep service worker alive
+// Send heartbeat to website tabs to announce extension presence
+async function sendHeartbeatToWebsite() {
+  try {
+    const tabs = await chrome.tabs.query({ url: ['https://xchangee.vercel.app/*'] });
+    const manifest = chrome.runtime.getManifest();
+    
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'EXTENSION_HEARTBEAT',
+        source: 'extension',
+        version: manifest.version,
+        isAuthenticated: !!authToken,
+        userId: userId
+      }).catch(err => {
+        // Tab might not have content script loaded yet, that's ok
+        console.log('Could not send heartbeat to tab:', tab.id);
+      });
+    });
+  } catch (error) {
+    console.error('Failed to send heartbeat:', error);
+  }
+}
+
+// Keep service worker alive and send periodic heartbeats
 setInterval(() => {
   console.log('Service worker keepalive');
+  sendHeartbeatToWebsite();
 }, 20000);

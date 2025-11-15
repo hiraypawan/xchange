@@ -115,16 +115,40 @@ async function handleAuthenticationFromWebsite(authData) {
 }
 
 // Announce extension presence to website
-function announceExtensionPresence() {
-  // Send periodic heartbeat to let website know extension is active
-  setInterval(() => {
-    window.postMessage({ 
-      type: 'XCHANGEE_EXTENSION_HEARTBEAT', 
+async function announceExtensionPresence() {
+  try {
+    // Get current auth status
+    const authStatus = await chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' });
+    
+    // Send initial heartbeat with auth info
+    window.postMessage({
+      type: 'XCHANGEE_EXTENSION_HEARTBEAT',
       source: 'extension',
       version: chrome.runtime.getManifest().version,
+      isAuthenticated: authStatus.isAuthenticated,
+      userId: authStatus.userId,
       timestamp: Date.now()
     }, '*');
-  }, 30000); // Every 30 seconds
+    
+    // Send periodic heartbeats
+    setInterval(async () => {
+      try {
+        const currentAuthStatus = await chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' });
+        window.postMessage({
+          type: 'XCHANGEE_EXTENSION_HEARTBEAT',
+          source: 'extension',
+          version: chrome.runtime.getManifest().version,
+          isAuthenticated: currentAuthStatus.isAuthenticated,
+          userId: currentAuthStatus.userId,
+          timestamp: Date.now()
+        }, '*');
+      } catch (error) {
+        console.error('Failed to send heartbeat:', error);
+      }
+    }, 10000); // Every 10 seconds
+  } catch (error) {
+    console.error('Failed to announce extension presence:', error);
+  }
 }
 
 // Add visual indicators for Xchangee-eligible tweets
@@ -512,6 +536,18 @@ function handleMessage(request, sender, sendResponse) {
         .then(() => sendResponse({ success: true }))
         .catch(error => sendResponse({ error: error.message }));
       return true; // Async response
+      
+    case 'EXTENSION_HEARTBEAT':
+      // Forward heartbeat to website
+      window.postMessage({
+        type: 'XCHANGEE_EXTENSION_HEARTBEAT',
+        source: 'extension',
+        version: request.version,
+        isAuthenticated: request.isAuthenticated,
+        userId: request.userId
+      }, '*');
+      sendResponse({ success: true });
+      break;
       
     default:
       sendResponse({ error: 'Unknown message type' });

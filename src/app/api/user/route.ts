@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import { updateProfileSchema } from '@/lib/validations';
 import { User } from '@/types';
+import { ObjectId } from 'mongodb';
 
 // GET /api/user - Get current user profile
 export async function GET(req: NextRequest) {

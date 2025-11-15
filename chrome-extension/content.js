@@ -43,12 +43,23 @@ function handleWebsiteMessage(event) {
   if (event.data?.type === 'XCHANGEE_EXTENSION_CHECK' && event.data?.source === 'website') {
     // Get auth status and respond immediately
     chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' }, (authResponse) => {
+      console.log('Extension check - Auth response:', authResponse);
       window.postMessage({ 
         type: 'XCHANGEE_EXTENSION_RESPONSE', 
         source: 'extension',
         version: chrome.runtime.getManifest().version,
         isAuthenticated: authResponse?.isAuthenticated || false,
         userId: authResponse?.userId || null
+      }, '*');
+      
+      // Also send immediate heartbeat
+      window.postMessage({
+        type: 'XCHANGEE_EXTENSION_HEARTBEAT',
+        source: 'extension',
+        version: chrome.runtime.getManifest().version,
+        isAuthenticated: authResponse?.isAuthenticated || false,
+        userId: authResponse?.userId || null,
+        timestamp: Date.now()
       }, '*');
     });
   }
@@ -122,18 +133,23 @@ async function handleAuthenticationFromWebsite(authData) {
 // Announce extension presence to website
 async function announceExtensionPresence() {
   try {
+    console.log('Announcing extension presence...');
+    
     // Get current auth status
     const authStatus = await chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' });
+    console.log('Extension announcement - Auth status:', authStatus);
     
     // Send initial heartbeat with auth info
     window.postMessage({
       type: 'XCHANGEE_EXTENSION_HEARTBEAT',
       source: 'extension',
       version: chrome.runtime.getManifest().version,
-      isAuthenticated: authStatus.isAuthenticated,
-      userId: authStatus.userId,
+      isAuthenticated: authStatus?.isAuthenticated || false,
+      userId: authStatus?.userId || null,
       timestamp: Date.now()
     }, '*');
+    
+    console.log('Initial heartbeat sent');
     
     // Send periodic heartbeats
     setInterval(async () => {
@@ -143,14 +159,15 @@ async function announceExtensionPresence() {
           type: 'XCHANGEE_EXTENSION_HEARTBEAT',
           source: 'extension',
           version: chrome.runtime.getManifest().version,
-          isAuthenticated: currentAuthStatus.isAuthenticated,
-          userId: currentAuthStatus.userId,
+          isAuthenticated: currentAuthStatus?.isAuthenticated || false,
+          userId: currentAuthStatus?.userId || null,
           timestamp: Date.now()
         }, '*');
+        console.log('Heartbeat sent - auth:', currentAuthStatus?.isAuthenticated);
       } catch (error) {
         console.error('Failed to send heartbeat:', error);
       }
-    }, 10000); // Every 10 seconds
+    }, 5000); // Every 5 seconds for more frequent updates
   } catch (error) {
     console.error('Failed to announce extension presence:', error);
   }

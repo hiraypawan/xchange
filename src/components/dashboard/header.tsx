@@ -100,14 +100,23 @@ export default function DashboardHeader() {
   useEffect(() => {
     // Listen for extension heartbeat messages
     const handleExtensionMessage = (event: MessageEvent) => {
+      console.log('Website received message:', event.data);
+      
       if (event.data?.type === 'XCHANGEE_EXTENSION_HEARTBEAT' && event.data?.source === 'extension') {
-        setExtensionStatus('connected');
+        const isAuthenticated = event.data.isAuthenticated || false;
+        console.log('Heartbeat received - authenticated:', isAuthenticated);
+        
+        setExtensionStatus(isAuthenticated ? 'connected' : 'disconnected');
         if (event.data.version) {
           setExtensionVersion(event.data.version);
         }
       }
+      
       if (event.data?.type === 'XCHANGEE_EXTENSION_RESPONSE' && event.data?.source === 'extension') {
-        setExtensionStatus('connected');
+        const isAuthenticated = event.data.isAuthenticated || false;
+        console.log('Extension response - authenticated:', isAuthenticated);
+        
+        setExtensionStatus(isAuthenticated ? 'connected' : 'disconnected');
         if (event.data.version) {
           setExtensionVersion(event.data.version);
         }

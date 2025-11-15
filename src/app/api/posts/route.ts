@@ -12,13 +12,18 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const query = Object.fromEntries(searchParams.entries());
     
+    console.log('Posts API - Raw query params:', query);
+    
     const validation = searchPostsSchema.safeParse(query);
     if (!validation.success) {
+      console.log('Posts API - Validation failed:', validation.error.errors);
       return NextResponse.json(
         { error: 'Invalid query parameters', details: validation.error.errors },
         { status: 400 }
       );
     }
+    
+    console.log('Posts API - Validation passed:', validation.data);
 
     const {
       query: searchQuery,

@@ -544,19 +544,29 @@ function showAuthSuccessNotification(userData) {
 // Send heartbeat to website tabs to announce extension presence
 async function sendHeartbeatToWebsite() {
   try {
-    const tabs = await chrome.tabs.query({ url: ['https://xchangee.vercel.app/*'] });
+    const tabs = await chrome.tabs.query({ 
+      url: ['https://xchangee.vercel.app/*', 'http://localhost:3000/*'] 
+    });
     const manifest = chrome.runtime.getManifest();
+    
+    // Get fresh auth status
+    const authData = await chrome.storage.local.get(['authToken', 'userId']);
+    const currentAuthToken = authData.authToken;
+    const currentUserId = authData.userId;
     
     tabs.forEach(tab => {
       chrome.tabs.sendMessage(tab.id, {
         type: 'EXTENSION_HEARTBEAT',
         source: 'extension',
         version: manifest.version,
-        isAuthenticated: !!authToken,
-        userId: userId
+        isAuthenticated: !!currentAuthToken,
+        userId: currentUserId
       }).catch(err => {
         // Tab might not have content script loaded yet, that's ok
-        console.log('Could not send heartbeat to tab:', tab.id);
+        // Only log if it's a real error, not just content script not ready
+        if (!err.message.includes('Could not establish connection')) {
+          console.log('Could not send heartbeat to tab:', tab.id, err.message);
+        }
       });
     });
   } catch (error) {

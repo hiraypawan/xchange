@@ -46,7 +46,10 @@ function initializeTwitter() {
 
 // Handle messages from the website
 function handleWebsiteMessage(event) {
+  console.log('Content script received message:', event.data);
+  
   if (event.data?.type === 'XCHANGEE_EXTENSION_CHECK' && event.data?.source === 'website') {
+    console.log('Handling extension check request');
     // Get auth status and respond immediately
     chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' }, (authResponse) => {
       console.log('Extension check - Auth response:', authResponse);
@@ -588,6 +591,28 @@ window.addEventListener('beforeunload', () => {
     observer.disconnect();
   }
 });
+
+// Announce extension presence to website
+async function announceExtensionPresence() {
+  try {
+    // Get current auth status
+    chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' }, (authResponse) => {
+      console.log('Announcing extension presence - Auth status:', authResponse);
+      
+      // Send heartbeat message to website
+      window.postMessage({
+        type: 'XCHANGEE_EXTENSION_HEARTBEAT',
+        source: 'extension',
+        version: chrome.runtime.getManifest().version,
+        isAuthenticated: authResponse?.isAuthenticated || false,
+        userId: authResponse?.userId || null,
+        timestamp: Date.now()
+      }, '*');
+    });
+  } catch (error) {
+    console.error('Failed to announce extension presence:', error);
+  }
+}
 
 // Set up Xchangee website integration
 function setupXchangeeWebsiteIntegration() {

@@ -100,6 +100,10 @@ export default function DashboardHeader() {
   useEffect(() => {
     // Listen for extension heartbeat messages
     const handleExtensionMessage = (event: MessageEvent) => {
+      // Filter out noise from other extensions
+      if (!event.data?.type?.includes('XCHANGEE') && !event.data?.source) {
+        return;
+      }
       console.log('Website received message:', event.data);
       
       if (event.data?.type === 'XCHANGEE_EXTENSION_HEARTBEAT' && event.data?.source === 'extension') {

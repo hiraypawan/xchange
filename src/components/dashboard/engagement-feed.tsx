@@ -121,7 +121,7 @@ export default function EngagementFeed() {
       </div>
 
       <div className="divide-y divide-gray-200">
-        {posts.map((post, index) => {
+        {(posts || []).map((post, index) => {
           const EngagementIcon = engagementIcons[post.engagementType];
           const isEngaging = engagingWith === post._id;
           const progress = (post.completedEngagements / post.targetEngagements) * 100;

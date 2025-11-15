@@ -17,6 +17,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
+    // Get JWT secret early to avoid reference errors
+    const jwtSecret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET || 'fallback-secret';
+    console.log('Using JWT secret:', jwtSecret ? 'exists' : 'missing');
+
     // Connect to database
     console.log('Connecting to database...');
     const { db } = await connectToDatabase();
@@ -73,8 +77,6 @@ export async function POST(request: NextRequest) {
 
     // Generate JWT token for extension
     console.log('Generating JWT token...');
-    const jwtSecret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET || 'fallback-secret';
-    console.log('Using JWT secret:', jwtSecret ? 'exists' : 'missing');
     
     const extensionToken = jwt.sign(
       {

@@ -47,8 +47,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Debug session error:', error);
     return NextResponse.json({
-      error: error.message,
-      stack: error.stack
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      stack: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
   }
 }

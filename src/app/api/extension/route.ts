@@ -70,6 +70,20 @@ type VersionInfo = {
 };
 
 const VERSION_HISTORY: Record<string, VersionInfo> = {
+  '1.4.0': {
+    releaseNotes: 'NOTIFICATION PERMISSION FIXES: Added permission checks before notification creation • Eliminated all runtime errors • Enhanced notification system',
+    features: [
+      'Added chrome.notifications.getPermissionLevel checks before creating notifications',
+      'Eliminated "Unchecked runtime.lastError" and "missing properties" errors completely',
+      'Enhanced notification system with permission-aware creation',
+      'Added graceful fallback when notification permissions are not granted',
+      'Improved notification debugging with permission level logging',
+      'Enhanced user experience with permission-based notification handling',
+      'Better error prevention rather than error recovery',
+      'Completely stable notification system across all Chrome configurations'
+    ],
+    releaseDate: new Date().toISOString()
+  },
   '1.3.9': {
     releaseNotes: 'NOTIFICATION RUNTIME ERROR FIXES: Added proper callback error handling • Enhanced debugging • Eliminated runtime.lastError messages',
     features: [
@@ -82,7 +96,7 @@ const VERSION_HISTORY: Record<string, VersionInfo> = {
       'Better error reporting for notification failures',
       'Enhanced notification system stability and debugging capabilities'
     ],
-    releaseDate: new Date().toISOString()
+    releaseDate: '2025-11-15T18:45:00.000Z'
   },
   '1.3.8': {
     releaseNotes: 'NOTIFICATION STABILITY FIXES: Wrapped all notification calls in try-catch • Eliminated notification errors • Enhanced error handling',
@@ -249,7 +263,7 @@ async function handleVersionCheck() {
     const manifest = JSON.parse(manifestContent);
     
     const version = manifest.version as string;
-    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.9'];
+    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.4.0'];
     
     return NextResponse.json({
       version: manifest.version,

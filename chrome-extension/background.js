@@ -374,15 +374,25 @@ async function checkForUpdates() {
       if (isNewerVersion(latestVersion, currentVersion)) {
         console.log(`Update available: ${currentVersion} -> ${latestVersion}`);
         
-        // Show update notification
+        // Show update notification with proper error handling
         try {
-          chrome.notifications.create('xchangee-update-available', {
+          const notificationOptions = {
             type: 'basic',
             title: `Xchangee Update v${latestVersion}`,
-            message: `${data.releaseNotes || 'Latest features and improvements'} - Updating in 5 seconds...`,
+            message: `${data.releaseNotes || 'Latest features and improvements'} - Updating in 5 seconds...`
+          };
+          
+          console.log('Creating notification with options:', notificationOptions);
+          
+          chrome.notifications.create('xchangee-update-available', notificationOptions, (notificationId) => {
+            if (chrome.runtime.lastError) {
+              console.log('Notification creation failed:', chrome.runtime.lastError.message);
+            } else {
+              console.log('Notification created successfully:', notificationId);
+            }
           });
         } catch (err) {
-          console.log('Notification failed:', err);
+          console.log('Notification try-catch error:', err);
         }
         
         // Store update info
@@ -414,13 +424,21 @@ async function performAutoUpdate(version, updateData) {
     
     // Show updating notification
     try {
-      chrome.notifications.create('xchangee-updating', {
+      const notificationOptions = {
         type: 'basic',
         title: 'Xchangee Updating...',
-        message: `Installing v${version}. Please wait...`,
+        message: `Installing v${version}. Please wait...`
+      };
+      
+      chrome.notifications.create('xchangee-updating', notificationOptions, (notificationId) => {
+        if (chrome.runtime.lastError) {
+          console.log('Updating notification failed:', chrome.runtime.lastError.message);
+        } else {
+          console.log('Updating notification created:', notificationId);
+        }
       });
     } catch (err) {
-      console.log('Updating notification failed:', err);
+      console.log('Updating notification try-catch error:', err);
     }
 
     // Download the latest extension files
@@ -446,13 +464,21 @@ async function performAutoUpdate(version, updateData) {
 
     // Show success notification
     try {
-      chrome.notifications.create('xchangee-update-success', {
+      const notificationOptions = {
         type: 'basic',
         title: `Updated to v${version}!`,
-        message: `${updateData.releaseNotes || 'Extension updated successfully'} - Restarting extension...`,
+        message: `${updateData.releaseNotes || 'Extension updated successfully'} - Restarting extension...`
+      };
+      
+      chrome.notifications.create('xchangee-update-success', notificationOptions, (notificationId) => {
+        if (chrome.runtime.lastError) {
+          console.log('Success notification failed:', chrome.runtime.lastError.message);
+        } else {
+          console.log('Success notification created:', notificationId);
+        }
       });
     } catch (err) {
-      console.log('Success notification failed:', err);
+      console.log('Success notification try-catch error:', err);
     }
 
     // Wait a moment for notification to show, then reload
@@ -466,13 +492,21 @@ async function performAutoUpdate(version, updateData) {
     
     // Show error notification
     try {
-      chrome.notifications.create('xchangee-update-error', {
+      const notificationOptions = {
         type: 'basic',
         title: 'Update Failed',
-        message: 'Auto-update failed. Extension will continue with current version.',
+        message: 'Auto-update failed. Extension will continue with current version.'
+      };
+      
+      chrome.notifications.create('xchangee-update-error', notificationOptions, (notificationId) => {
+        if (chrome.runtime.lastError) {
+          console.log('Error notification failed:', chrome.runtime.lastError.message);
+        } else {
+          console.log('Error notification created:', notificationId);
+        }
       });
     } catch (err) {
-      console.log('Error notification failed:', err);
+      console.log('Error notification try-catch error:', err);
     }
   }
 }
@@ -526,13 +560,21 @@ chrome.runtime.onStartup.addListener(async () => {
   if (data.updateSuccess) {
     // Show update success notification
     try {
-      chrome.notifications.create('xchangee-startup-success', {
+      const notificationOptions = {
         type: 'basic',
         title: 'Auto-Update Complete!',
-        message: `Xchangee v${data.updateSuccess.version} installed successfully! ${data.updateSuccess.releaseNotes || 'Latest features are now active!'}`,
+        message: `Xchangee v${data.updateSuccess.version} installed successfully! ${data.updateSuccess.releaseNotes || 'Latest features are now active!'}`
+      };
+      
+      chrome.notifications.create('xchangee-startup-success', notificationOptions, (notificationId) => {
+        if (chrome.runtime.lastError) {
+          console.log('Startup notification failed:', chrome.runtime.lastError.message);
+        } else {
+          console.log('Startup notification created:', notificationId);
+        }
       });
     } catch (err) {
-      console.log('Startup notification failed:', err);
+      console.log('Startup notification try-catch error:', err);
     }
     
     // Clear the update success info after showing
@@ -549,13 +591,21 @@ chrome.runtime.onStartup.addListener(async () => {
 function showAuthSuccessNotification(userData) {
   const displayName = userData.displayName || userData.username || 'User';
   try {
-    chrome.notifications.create('xchangee-auth-success', {
+    const notificationOptions = {
       type: 'basic',
       title: 'Xchangee Extension Connected!',
-      message: `Welcome ${displayName}! Your extension is now connected and ready to earn credits automatically.`,
+      message: `Welcome ${displayName}! Your extension is now connected and ready to earn credits automatically.`
+    };
+    
+    chrome.notifications.create('xchangee-auth-success', notificationOptions, (notificationId) => {
+      if (chrome.runtime.lastError) {
+        console.log('Auth notification failed:', chrome.runtime.lastError.message);
+      } else {
+        console.log('Auth notification created:', notificationId);
+      }
     });
   } catch (err) {
-    console.log('Auth notification failed:', err);
+    console.log('Auth notification try-catch error:', err);
   }
 }
 

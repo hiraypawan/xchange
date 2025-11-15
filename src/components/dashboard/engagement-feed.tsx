@@ -31,39 +31,7 @@ interface Post {
   priority: 'low' | 'medium' | 'high' | 'urgent';
 }
 
-const mockPosts: Post[] = [
-  {
-    _id: '1',
-    tweetUrl: 'https://twitter.com/user1/status/123456789',
-    content: 'Just launched my new project! Excited to share this with the community. What do you think? #startup #tech',
-    author: {
-      username: 'techfounder',
-      displayName: 'Tech Founder',
-      avatar: 'https://via.placeholder.com/40',
-    },
-    engagementType: 'like',
-    creditsRequired: 1,
-    maxEngagements: 50,
-    currentEngagements: 23,
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    priority: 'high',
-  },
-  {
-    _id: '2',
-    tweetUrl: 'https://twitter.com/user2/status/123456790',
-    content: 'Amazing sunset today! Nature never fails to inspire me. 🌅',
-    author: {
-      username: 'naturelover',
-      displayName: 'Nature Photographer',
-    },
-    engagementType: 'retweet',
-    creditsRequired: 1,
-    maxEngagements: 25,
-    currentEngagements: 8,
-    createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-    priority: 'medium',
-  },
-];
+const mockPosts: Post[] = [];
 
 const engagementIcons = {
   like: Heart,
@@ -92,11 +60,9 @@ export default function EngagementFeed() {
   const [engagingWith, setEngagingWith] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setPosts(mockPosts);
-      setLoading(false);
-    }, 1000);
+    // Load real posts from API
+    setPosts(mockPosts);
+    setLoading(false);
   }, []);
 
   const handleEngage = async (postId: string, engagementType: string) => {

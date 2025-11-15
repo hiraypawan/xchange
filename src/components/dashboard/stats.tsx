@@ -16,36 +16,36 @@ import {
 const stats = [
   {
     name: 'Total Engagements',
-    value: '2,847',
-    change: '+12.3%',
-    changeType: 'increase',
+    value: '0',
+    change: '--',
+    changeType: 'neutral',
     icon: Heart,
     color: 'text-red-500',
     bgColor: 'bg-red-50',
   },
   {
     name: 'Success Rate',
-    value: '94.2%',
-    change: '+2.1%',
-    changeType: 'increase',
+    value: '--',
+    change: '--',
+    changeType: 'neutral',
     icon: Target,
     color: 'text-green-500',
     bgColor: 'bg-green-50',
   },
   {
     name: 'Active Posts',
-    value: '23',
-    change: '+5',
-    changeType: 'increase',
+    value: '0',
+    change: '--',
+    changeType: 'neutral',
     icon: TrendingUp,
     color: 'text-blue-500',
     bgColor: 'bg-blue-50',
   },
   {
     name: 'Weekly Earnings',
-    value: '1,247',
-    change: '+18.7%',
-    changeType: 'increase',
+    value: '0',
+    change: '--',
+    changeType: 'neutral',
     icon: Award,
     color: 'text-purple-500',
     bgColor: 'bg-purple-50',
@@ -53,10 +53,10 @@ const stats = [
 ];
 
 const engagementBreakdown = [
-  { type: 'Likes', count: 1247, icon: Heart, color: 'text-red-500' },
-  { type: 'Retweets', count: 892, icon: Repeat2, color: 'text-green-500' },
-  { type: 'Replies', count: 456, icon: MessageCircle, color: 'text-blue-500' },
-  { type: 'Follows', count: 252, icon: UserPlus, color: 'text-purple-500' },
+  { type: 'Likes', count: 0, icon: Heart, color: 'text-red-500' },
+  { type: 'Retweets', count: 0, icon: Repeat2, color: 'text-green-500' },
+  { type: 'Replies', count: 0, icon: MessageCircle, color: 'text-blue-500' },
+  { type: 'Follows', count: 0, icon: UserPlus, color: 'text-purple-500' },
 ];
 
 export default function DashboardStats() {
@@ -84,13 +84,15 @@ export default function DashboardStats() {
                     <p className="text-sm font-medium text-gray-600">{stat.name}</p>
                     <div className="flex items-baseline">
                       <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
-                      <p
-                        className={`ml-2 text-sm font-medium ${
-                          stat.changeType === 'increase' ? 'text-green-600' : 'text-red-600'
-                        }`}
-                      >
-                        {stat.change}
-                      </p>
+                      {stat.change !== '--' && (
+                        <p
+                          className={`ml-2 text-sm font-medium ${
+                            stat.changeType === 'increase' ? 'text-green-600' : 'text-red-600'
+                          }`}
+                        >
+                          {stat.change}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </motion.div>

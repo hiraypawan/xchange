@@ -45,7 +45,7 @@ export const authOptions: NextAuthOptions = {
 
           if (!existingUser) {
             // Create new user with starting credits
-            const newUser: Partial<User> = {
+            const newUser: Omit<User, '_id'> = {
               twitterId: (profile as any).id,
               username: (profile as any).username || user.name?.replace(/\s+/g, '_').toLowerCase(),
               displayName: (profile as any).name || user.name || '',

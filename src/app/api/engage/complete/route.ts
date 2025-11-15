@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     
     // Get user
     const user = await db.collection('users').findOne({
-      _id: session.user.id
+      _id: new ObjectId(session.user.id)
     });
 
     if (!user) {

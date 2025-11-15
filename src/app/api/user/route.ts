@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
     const user = await db.collection('users').findOne(
-      { _id: session.user.id }
+      { _id: new ObjectId(session.user.id) }
     ) as User;
 
     if (!user) {
@@ -80,7 +80,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const result = await db.collection('users').updateOne(
-      { _id: session.user.id },
+      { _id: new ObjectId(session.user.id) },
       { $set: updateData }
     );
 

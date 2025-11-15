@@ -47,6 +47,48 @@ function handleWebsiteMessage(event) {
       version: chrome.runtime.getManifest().version 
     }, '*');
   }
+  
+  // Handle authentication from extension auth page
+  if (event.data?.type === 'EXTENSION_AUTH_SUCCESS') {
+    handleAuthenticationFromWebsite(event.data);
+  }
+}
+
+// Handle authentication data from website
+async function handleAuthenticationFromWebsite(authData) {
+  try {
+    console.log('Received authentication from website:', authData);
+    
+    // Store auth data in extension storage
+    await chrome.runtime.sendMessage({
+      type: 'SET_AUTH',
+      authToken: authData.authToken,
+      userId: authData.userId,
+      userData: authData.userData
+    });
+    
+    // Store user data in local storage for popup
+    await chrome.storage.local.set({
+      userData: authData.userData,
+      authToken: authData.authToken,
+      userId: authData.userId,
+      lastAuthTime: Date.now()
+    });
+    
+    // Show success notification
+    chrome.runtime.sendMessage({
+      type: 'SHOW_AUTH_SUCCESS_NOTIFICATION',
+      userData: authData.userData
+    });
+    
+    // Refresh page indicators
+    setTimeout(() => {
+      location.reload();
+    }, 2000);
+    
+  } catch (error) {
+    console.error('Failed to handle authentication:', error);
+  }
 }
 
 // Announce extension presence to website

@@ -3,17 +3,13 @@
 import React from 'react';
 import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
-import { Coins, TrendingUp, TrendingDown, Plus } from 'lucide-react';
+import { Coins, TrendingUp, TrendingDown, Plus, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import { useRealTimeStats } from '@/hooks/use-real-time-stats';
 
 export default function CreditBalance() {
   const { data: session } = useSession();
-  
-  // Mock data - replace with actual API calls
-  const credits = session?.user?.credits || 0;
-  const todayEarnings = 12;
-  const todaySpent = 8;
-  const weeklyChange = +15.2;
+  const { stats, isLoading, error, refetch } = useRealTimeStats();
 
   return (
     <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg shadow-lg text-white p-6">

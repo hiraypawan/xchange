@@ -100,6 +100,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       clearUpdateInfo().then(sendResponse);
       return true; // Async response
       
+    case 'SHOW_AUTH_SUCCESS_NOTIFICATION':
+      showAuthSuccessNotification(request.userData);
+      sendResponse({ success: true });
+      break;
+      
     default:
       sendResponse({ error: 'Unknown message type' });
   }
@@ -412,6 +417,16 @@ chrome.runtime.onStartup.addListener(async () => {
     await chrome.storage.local.remove(['pendingUpdate']);
   }
 });
+
+// Show authentication success notification
+function showAuthSuccessNotification(userData) {
+  const displayName = userData.displayName || userData.username || 'User';
+  chrome.notifications.create({
+    type: 'basic',
+    title: '🎉 Xchangee Extension Connected!',
+    message: `Welcome ${displayName}! Your extension is now connected and ready to earn credits automatically.`,
+  });
+}
 
 // Keep service worker alive
 setInterval(() => {

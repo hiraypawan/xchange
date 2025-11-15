@@ -30,8 +30,15 @@ async function initializePopup() {
 
 function setupEventListeners() {
   // Auth
-  document.getElementById('login-btn').addEventListener('click', handleLogin);
-  document.getElementById('logout-btn').addEventListener('click', handleLogout);
+  const loginBtn = document.getElementById('login-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  
+  if (loginBtn) {
+    loginBtn.addEventListener('click', handleLogin);
+  }
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', handleLogout);
+  }
   
   // Navigation
   document.getElementById('settings-btn').addEventListener('click', showSettings);
@@ -304,6 +311,40 @@ function showAuthRequired() {
 
 function hideLoading() {
   document.getElementById('loading').style.display = 'none';
+}
+
+// Handle login via website
+async function handleLogin() {
+  try {
+    // Open the main website for authentication
+    const authUrl = 'https://xchangee.vercel.app/auth/extension';
+    await chrome.tabs.create({ url: authUrl });
+    
+    // Close the popup
+    window.close();
+  } catch (error) {
+    console.error('Login failed:', error);
+    showError('Failed to open login page');
+  }
+}
+
+// Handle logout
+async function handleLogout() {
+  try {
+    // Clear all stored auth data
+    await chrome.storage.local.clear();
+    
+    // Send logout message to background script
+    await chrome.runtime.sendMessage({ type: 'LOGOUT' });
+    
+    // Reset UI
+    currentUser = null;
+    currentSettings = null;
+    showAuthRequired();
+    
+  } catch (error) {
+    console.error('Logout failed:', error);
+  }
 }
 
 async function saveSettings() {

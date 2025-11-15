@@ -1,9 +1,18 @@
-import { NextAuthOptions } from 'next-auth';
+import { NextAuthOptions, Profile } from 'next-auth';
 import TwitterProvider from 'next-auth/providers/twitter';
 import { MongoDBAdapter } from '@next-auth/mongodb-adapter';
 import clientPromise from './mongodb';
 import { connectToDatabase } from './mongodb';
 import { User } from '@/types';
+import { ObjectId } from 'mongodb';
+
+// Define Twitter profile interface
+interface TwitterProfile extends Profile {
+  id: string;
+  username?: string;
+  name?: string;
+  profile_image_url?: string;
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: MongoDBAdapter(clientPromise),
@@ -34,11 +43,12 @@ export const authOptions: NextAuthOptions = {
       try {
         if (account?.provider === 'twitter' && profile) {
           const { db } = await connectToDatabase();
+          const twitterProfile = profile as TwitterProfile;
           
           // Check if user exists
           const existingUser = await db.collection('users').findOne({
             $or: [
-              { twitterId: (profile as any).id },
+              { twitterId: twitterProfile.id },
               { email: user.email }
             ]
           });
@@ -46,10 +56,10 @@ export const authOptions: NextAuthOptions = {
           if (!existingUser) {
             // Create new user with starting credits
             const newUser: Omit<User, '_id'> = {
-              twitterId: (profile as any).id,
-              username: (profile as any).username || user.name?.replace(/\s+/g, '_').toLowerCase(),
-              displayName: (profile as any).name || user.name || '',
-              avatar: (profile as any).profile_image_url || user.image,
+              twitterId: twitterProfile.id,
+              username: twitterProfile.username || user.name?.replace(/\s+/g, '_').toLowerCase() || 'unknown',
+              displayName: twitterProfile.name || user.name || '',
+              avatar: twitterProfile.profile_image_url || user.image || undefined,
               email: user.email ?? undefined,
               credits: parseInt(process.env.USER_STARTING_CREDITS || '100'),
               totalEarned: 0,
@@ -77,7 +87,7 @@ export const authOptions: NextAuthOptions = {
 
             // Create welcome credit transaction
             await db.collection('credit_transactions').insertOne({
-              userId: (profile as any).id,
+              userId: twitterProfile.id,
               type: 'bonus',
               amount: parseInt(process.env.USER_STARTING_CREDITS || '100'),
               balance: parseInt(process.env.USER_STARTING_CREDITS || '100'),
@@ -87,12 +97,12 @@ export const authOptions: NextAuthOptions = {
           } else {
             // Update last active
             await db.collection('users').updateOne(
-              { twitterId: profile.id },
+              { twitterId: twitterProfile.id },
               { 
                 $set: { 
                   lastActive: new Date(),
-                  avatar: profile.profile_image_url || user.image,
-                  displayName: profile.name || user.name || existingUser.displayName,
+                  avatar: twitterProfile.profile_image_url || user.image,
+                  displayName: twitterProfile.name || user.name || existingUser.displayName,
                 }
               }
             );
@@ -107,12 +117,13 @@ export const authOptions: NextAuthOptions = {
     
     async jwt({ token, account, profile, user }) {
       if (account && profile) {
-        token.twitterId = profile.id;
-        token.username = profile.username;
+        const twitterProfile = profile as TwitterProfile;
+        token.twitterId = twitterProfile.id;
+        token.username = twitterProfile.username || 'unknown';
         
         // Fetch user data from database
         const { db } = await connectToDatabase();
-        const dbUser = await db.collection('users').findOne({ twitterId: profile.id });
+        const dbUser = await db.collection('users').findOne({ twitterId: twitterProfile.id });
         
         if (dbUser) {
           token.credits = dbUser.credits;
@@ -164,7 +175,7 @@ export async function getCurrentUser(twitterId: string): Promise<User | null> {
   try {
     const { db } = await connectToDatabase();
     const user = await db.collection('users').findOne({ twitterId });
-    return user as User;
+    return user ? (user as any) as User : null;
   } catch (error) {
     console.error('Get current user error:', error);
     return null;
@@ -189,8 +200,9 @@ export async function updateUserCredits(
     try {
       await session.withTransaction(async () => {
         // Get current user
+        const objectId = new ObjectId(userId);
         const user = await db.collection('users').findOne(
-          { _id: userId },
+          { _id: objectId },
           { session }
         );
         
@@ -206,7 +218,7 @@ export async function updateUserCredits(
         
         // Update user credits
         await db.collection('users').updateOne(
-          { _id: userId },
+          { _id: objectId },
           { 
             $set: { credits: newBalance },
             $inc: amount > 0 ? { totalEarned: amount } : { totalSpent: Math.abs(amount) }
@@ -216,7 +228,7 @@ export async function updateUserCredits(
         
         // Create transaction record
         await db.collection('credit_transactions').insertOne({
-          userId,
+          userId: objectId,
           type,
           amount,
           balance: newBalance,

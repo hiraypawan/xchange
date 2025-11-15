@@ -70,6 +70,20 @@ type VersionInfo = {
 };
 
 const VERSION_HISTORY: Record<string, VersionInfo> = {
+  '1.3.5': {
+    releaseNotes: 'COMMUNICATION FIXES: Enhanced heartbeat system • Fixed extension status detection • Improved logging',
+    features: [
+      'Enhanced extension heartbeat communication with better error handling',
+      'Fixed extension status detection with proper authentication checking',
+      'Added comprehensive logging for debugging communication issues',
+      'Improved heartbeat frequency to 5 seconds for faster status updates',
+      'Enhanced website message handling with authentication status',
+      'Fixed extension authentication response handling',
+      'Added better fallback mechanisms for failed communications',
+      'Improved extension presence announcement system'
+    ],
+    releaseDate: new Date().toISOString()
+  },
   '1.3.4': {
     releaseNotes: 'DOWNLOAD & DETECTION FIXES: Always serve latest extension • Enhanced status detection • Real-time auth checking',
     features: [
@@ -82,7 +96,7 @@ const VERSION_HISTORY: Record<string, VersionInfo> = {
       'Fixed version filename in downloads to show current version',
       'Better debugging and logging for extension status detection'
     ],
-    releaseDate: new Date().toISOString()
+    releaseDate: '2025-11-15T17:30:00.000Z'
   },
   '1.3.3': {
     releaseNotes: 'NOTIFICATION FIXES: Fixed Chrome notification errors • Enhanced notification system • Better error handling',
@@ -179,7 +193,7 @@ async function handleVersionCheck() {
     const manifest = JSON.parse(manifestContent);
     
     const version = manifest.version as string;
-    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.4'];
+    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.5'];
     
     return NextResponse.json({
       version: manifest.version,

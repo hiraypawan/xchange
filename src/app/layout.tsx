@@ -39,9 +39,12 @@ export const metadata: Metadata = {
     creator: '@xchangee',
   },
   icons: {
-    icon: '/favicon.ico',
-    shortcut: '/favicon-16x16.png',
-    apple: '/apple-touch-icon.png',
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon-16x16.svg', sizes: '16x16', type: 'image/svg+xml' }
+    ],
+    shortcut: '/favicon-16x16.svg',
+    apple: '/apple-touch-icon.svg',
   },
   manifest: '/site.webmanifest',
 };

@@ -139,7 +139,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Extension token generation failed:', error);
     return NextResponse.json(
-      { error: 'Failed to generate extension token' },
+      { 
+        error: 'Failed to generate extension token',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
@@ -185,7 +188,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Extension status check failed:', error);
     return NextResponse.json(
-      { error: 'Failed to check extension status' },
+      { 
+        error: 'Failed to check extension status',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

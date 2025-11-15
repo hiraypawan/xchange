@@ -50,7 +50,7 @@ export const authOptions: NextAuthOptions = {
               username: (profile as any).username || user.name?.replace(/\s+/g, '_').toLowerCase(),
               displayName: (profile as any).name || user.name || '',
               avatar: (profile as any).profile_image_url || user.image,
-              email: user.email || undefined,
+              email: user.email ?? undefined,
               credits: parseInt(process.env.USER_STARTING_CREDITS || '100'),
               totalEarned: 0,
               totalSpent: 0,

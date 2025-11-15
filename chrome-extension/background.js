@@ -377,7 +377,6 @@ async function checkForUpdates() {
         // Show update notification
         chrome.notifications.create('xchangee-update-available', {
           type: 'basic',
-          iconUrl: '/icon.png',
           title: `Xchangee Update v${latestVersion}`,
           message: `${data.releaseNotes || 'Latest features and improvements'}\n\nUpdating automatically in 5 seconds...`,
         });
@@ -412,7 +411,6 @@ async function performAutoUpdate(version, updateData) {
     // Show updating notification
     chrome.notifications.create('xchangee-updating', {
       type: 'basic',
-      iconUrl: '/icon.png',
       title: 'Xchangee Updating...',
       message: `Installing v${version}. Please wait...`,
     });
@@ -441,7 +439,6 @@ async function performAutoUpdate(version, updateData) {
     // Show success notification
     chrome.notifications.create('xchangee-update-success', {
       type: 'basic',
-      iconUrl: '/icon.png',
       title: `Updated to v${version}!`,
       message: `${updateData.releaseNotes || 'Extension updated successfully'}\n\nRestarting extension...`,
     });
@@ -458,7 +455,6 @@ async function performAutoUpdate(version, updateData) {
     // Show error notification
     chrome.notifications.create('xchangee-update-error', {
       type: 'basic',
-      iconUrl: '/icon.png',
       title: 'Update Failed',
       message: 'Auto-update failed. Extension will continue with current version.',
     });
@@ -515,7 +511,6 @@ chrome.runtime.onStartup.addListener(async () => {
     // Show update success notification
     chrome.notifications.create('xchangee-startup-success', {
       type: 'basic',
-      iconUrl: '/icon.png',
       title: 'Auto-Update Complete!',
       message: `Xchangee v${data.updateSuccess.version} installed successfully!\n\n${data.updateSuccess.releaseNotes || 'Latest features are now active!'}`,
     });
@@ -535,7 +530,6 @@ function showAuthSuccessNotification(userData) {
   const displayName = userData.displayName || userData.username || 'User';
   chrome.notifications.create('xchangee-auth-success', {
     type: 'basic',
-    iconUrl: '/icon.png',
     title: 'Xchangee Extension Connected!',
     message: `Welcome ${displayName}! Your extension is now connected and ready to earn credits automatically.`,
   });

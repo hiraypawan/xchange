@@ -6,7 +6,13 @@ let observer = null;
 // Initialize content script
 (function() {
   console.log('Xchangee content script loaded');
-  setupTwitterIntegration();
+  
+  // Check which domain we're on and initialize accordingly
+  if (window.location.hostname.includes('twitter.com') || window.location.hostname.includes('x.com')) {
+    setupTwitterIntegration();
+  } else if (window.location.hostname.includes('xchangee.vercel.app') || window.location.hostname.includes('localhost')) {
+    setupXchangeeWebsiteIntegration();
+  }
 })();
 
 // Set up Twitter page integration
@@ -582,3 +588,24 @@ window.addEventListener('beforeunload', () => {
     observer.disconnect();
   }
 });
+
+// Set up Xchangee website integration
+function setupXchangeeWebsiteIntegration() {
+  console.log('Initializing Xchangee website integration');
+  
+  // Listen for messages from background script
+  chrome.runtime.onMessage.addListener(handleMessage);
+  
+  // Listen for messages from website for extension detection
+  window.addEventListener('message', handleWebsiteMessage);
+  
+  // Announce extension presence to website immediately
+  announceExtensionPresence();
+  
+  // Send periodic heartbeats to keep the website updated
+  setInterval(() => {
+    announceExtensionPresence();
+  }, 5000); // Every 5 seconds
+  
+  console.log('Xchangee website integration initialized');
+}

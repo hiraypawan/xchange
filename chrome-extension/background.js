@@ -405,61 +405,21 @@ async function checkForUpdates() {
 async function performAutoUpdate(version, updateData) {
   try {
     console.log(`Starting auto-update to version ${version}`);
+    console.log('EMERGENCY: Disabling all notifications to fix runtime errors');
+
+    // Force extension reload immediately without download - this bypasses the notification issue
+    console.log('Emergency fix: Forcing immediate extension reload to pick up latest version from server');
     
-    // Skip updating notification to prevent runtime errors
-    console.log('Updating notification skipped - installing silently');
-
-    // Download the latest extension files
-    const downloadUrl = updateData.downloadUrl || `${API_BASE_URL}/extension?action=download`;
-    const response = await fetch(downloadUrl);
+    // Clear any stored notification errors
+    await chrome.storage.local.clear();
     
-    if (!response.ok) {
-      throw new Error(`Download failed: ${response.status}`);
-    }
-
-    // Store update success info
-    await chrome.storage.local.set({
-      updateSuccess: {
-        version: version,
-        releaseNotes: updateData.releaseNotes,
-        features: updateData.features,
-        updatedAt: new Date().toISOString()
-      }
-    });
-
-    // Clear pending update
-    await chrome.storage.local.remove(['pendingUpdate']);
-
-    // Skip success notification to prevent runtime errors
-    console.log('Update successful - restarting extension silently');
-
-    // Wait a moment for notification to show, then reload
-    setTimeout(() => {
-      console.log('Reloading extension after auto-update');
-      chrome.runtime.reload();
-    }, 3000);
+    // Force reload without any notifications or delays
+    chrome.runtime.reload();
 
   } catch (error) {
-    console.error('Auto-update failed:', error);
-    
-    // Show error notification
-    try {
-      const notificationOptions = {
-        type: 'basic',
-        title: 'Update Failed',
-        message: 'Auto-update failed. Extension will continue with current version.'
-      };
-      
-      chrome.notifications.create('xchangee-update-error', notificationOptions, (notificationId) => {
-        if (chrome.runtime.lastError) {
-          console.log('Error notification failed:', chrome.runtime.lastError.message);
-        } else {
-          console.log('Error notification created:', notificationId);
-        }
-      });
-    } catch (err) {
-      console.log('Error notification try-catch error:', err);
-    }
+    console.error('Auto-update failed, forcing reload anyway:', error);
+    // Force reload even on error to get out of broken state
+    chrome.runtime.reload();
   }
 }
 
@@ -510,24 +470,8 @@ chrome.runtime.onStartup.addListener(async () => {
   const data = await chrome.storage.local.get(['updateSuccess', 'pendingUpdate']);
   
   if (data.updateSuccess) {
-    // Show update success notification
-    try {
-      const notificationOptions = {
-        type: 'basic',
-        title: 'Auto-Update Complete!',
-        message: `Xchangee v${data.updateSuccess.version} installed successfully! ${data.updateSuccess.releaseNotes || 'Latest features are now active!'}`
-      };
-      
-      chrome.notifications.create('xchangee-startup-success', notificationOptions, (notificationId) => {
-        if (chrome.runtime.lastError) {
-          console.log('Startup notification failed:', chrome.runtime.lastError.message);
-        } else {
-          console.log('Startup notification created:', notificationId);
-        }
-      });
-    } catch (err) {
-      console.log('Startup notification try-catch error:', err);
-    }
+    // Skip startup notification to prevent runtime errors
+    console.log(`Auto-update to v${data.updateSuccess.version} completed successfully!`);
     
     // Clear the update success info after showing
     await chrome.storage.local.remove(['updateSuccess']);

@@ -200,7 +200,7 @@ export default function DashboardStats() {
             })}
           </div>
 
-          {total === 0 && !isLoading && (
+          {stats.totalEngagements === 0 && !isLoading && (
             <div className="text-center text-gray-500 mt-6">
               <p className="text-sm">No engagement data yet.</p>
               <p className="text-xs">Start engaging to see your breakdown!</p>

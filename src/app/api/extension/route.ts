@@ -70,6 +70,20 @@ type VersionInfo = {
 };
 
 const VERSION_HISTORY: Record<string, VersionInfo> = {
+  '1.3.3': {
+    releaseNotes: 'NOTIFICATION FIXES: Fixed Chrome notification errors • Enhanced notification system • Better error handling',
+    features: [
+      'Fixed "Some of the required properties are missing" notification errors',
+      'Added proper notification IDs and icon references',
+      'Enhanced notification system with consistent formatting',
+      'Added proper icon.png file for notifications',
+      'Fixed all notification calls with proper type, iconUrl, title, and message',
+      'Improved error handling for notification failures',
+      'Better notification lifecycle management',
+      'Enhanced notification appearance and reliability'
+    ],
+    releaseDate: new Date().toISOString()
+  },
   '1.3.2': {
     releaseNotes: 'AUTO-UPDATE SYSTEM: Seamless automatic updates every 10 seconds • No more manual downloads needed',
     features: [
@@ -82,7 +96,7 @@ const VERSION_HISTORY: Record<string, VersionInfo> = {
       'Update success notifications with release notes',
       'Improved extension startup and initialization process'
     ],
-    releaseDate: new Date().toISOString()
+    releaseDate: '2025-11-15T17:00:00.000Z'
   },
   '1.3.1': {
     releaseNotes: 'AUTHENTICATION FIX: Enhanced auth storage and website detection • Improved heartbeat communication',
@@ -151,7 +165,7 @@ async function handleVersionCheck() {
     const manifest = JSON.parse(manifestContent);
     
     const version = manifest.version as string;
-    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.2'];
+    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.3'];
     
     return NextResponse.json({
       version: manifest.version,

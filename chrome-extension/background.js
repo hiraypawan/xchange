@@ -375,10 +375,10 @@ async function checkForUpdates() {
         console.log(`Update available: ${currentVersion} -> ${latestVersion}`);
         
         // Show update notification
-        chrome.notifications.create({
+        chrome.notifications.create('xchangee-update-available', {
           type: 'basic',
-          iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iOCIgZmlsbD0iIzFkYTFmMiIvPgo8cGF0aCBkPSJNMjQgMTJMMTIgMjhoMTJsLTIgMTYgMjAtMjRoLTEybDItMTZ6IiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
-          title: `🚀 Xchangee Auto-Update v${latestVersion}`,
+          iconUrl: '/icon.png',
+          title: `Xchangee Update v${latestVersion}`,
           message: `${data.releaseNotes || 'Latest features and improvements'}\n\nUpdating automatically in 5 seconds...`,
         });
         
@@ -410,10 +410,10 @@ async function performAutoUpdate(version, updateData) {
     console.log(`Starting auto-update to version ${version}`);
     
     // Show updating notification
-    chrome.notifications.create({
+    chrome.notifications.create('xchangee-updating', {
       type: 'basic',
-      iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iOCIgZmlsbD0iIzE2YTM0YSIvPgo8cGF0aCBkPSJNMjAgMzJsMTItMTItMy0zLTkgOS02LTYtMyAzIDkgOXoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=',
-      title: '⚡ Xchangee Updating...',
+      iconUrl: '/icon.png',
+      title: 'Xchangee Updating...',
       message: `Installing v${version}. Please wait...`,
     });
 
@@ -439,10 +439,10 @@ async function performAutoUpdate(version, updateData) {
     await chrome.storage.local.remove(['pendingUpdate']);
 
     // Show success notification
-    chrome.notifications.create({
+    chrome.notifications.create('xchangee-update-success', {
       type: 'basic',
-      iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iOCIgZmlsbD0iIzE2YTM0YSIvPgo8cGF0aCBkPSJNMjAgMzJsMTItMTItMy0zLTkgOS02LTYtMyAzIDkgOXoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=',
-      title: `🎉 Updated to v${version}!`,
+      iconUrl: '/icon.png',
+      title: `Updated to v${version}!`,
       message: `${updateData.releaseNotes || 'Extension updated successfully'}\n\nRestarting extension...`,
     });
 
@@ -456,10 +456,10 @@ async function performAutoUpdate(version, updateData) {
     console.error('Auto-update failed:', error);
     
     // Show error notification
-    chrome.notifications.create({
+    chrome.notifications.create('xchangee-update-error', {
       type: 'basic',
-      iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iOCIgZmlsbD0iI2RjMjYyNiIvPgo8cGF0aCBkPSJNMzQgMTRMMjQgMjRsLTEwLTEwLTQgNGwxMCAxMC0xMCAxMCA0IDRsMTAtMTAgMTAgMTAgNC00LTEwLTEwIDEwLTEwLTQtNHoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=',
-      title: '❌ Update Failed',
+      iconUrl: '/icon.png',
+      title: 'Update Failed',
       message: 'Auto-update failed. Extension will continue with current version.',
     });
   }
@@ -513,10 +513,10 @@ chrome.runtime.onStartup.addListener(async () => {
   
   if (data.updateSuccess) {
     // Show update success notification
-    chrome.notifications.create({
+    chrome.notifications.create('xchangee-startup-success', {
       type: 'basic',
-      iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iOCIgZmlsbD0iIzE2YTM0YSIvPgo8cGF0aCBkPSJNMjAgMzJsMTItMTItMy0zLTkgOS02LTYtMyAzIDkgOXoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=',
-      title: `✅ Auto-Update Complete!`,
+      iconUrl: '/icon.png',
+      title: 'Auto-Update Complete!',
       message: `Xchangee v${data.updateSuccess.version} installed successfully!\n\n${data.updateSuccess.releaseNotes || 'Latest features are now active!'}`,
     });
     
@@ -533,9 +533,10 @@ chrome.runtime.onStartup.addListener(async () => {
 // Show authentication success notification
 function showAuthSuccessNotification(userData) {
   const displayName = userData.displayName || userData.username || 'User';
-  chrome.notifications.create({
+  chrome.notifications.create('xchangee-auth-success', {
     type: 'basic',
-    title: '🎉 Xchangee Extension Connected!',
+    iconUrl: '/icon.png',
+    title: 'Xchangee Extension Connected!',
     message: `Welcome ${displayName}! Your extension is now connected and ready to earn credits automatically.`,
   });
 }

@@ -276,6 +276,18 @@ export function buildUrl(base: string, params: Record<string, any>): string {
   return url.toString();
 }
 
+// Validate Twitter URL
+export function isValidTweetUrl(url: string): boolean {
+  const twitterRegex = /^https?:\/\/(www\.)?(twitter\.com|x\.com)\/\w+\/status\/\d+/;
+  return twitterRegex.test(url);
+}
+
+// Extract username from URL
+export function extractUsernameFromUrl(url: string): string | null {
+  const match = url.match(/twitter\.com\/([^\/]+)/) || url.match(/x\.com\/([^\/]+)/);
+  return match ? match[1] : null;
+}
+
 // Copy to clipboard
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {

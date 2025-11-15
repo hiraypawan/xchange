@@ -71,14 +71,15 @@ type VersionInfo = {
 
 const VERSION_HISTORY: Record<string, VersionInfo> = {
   '1.2.0': {
-    releaseNotes: 'Real-time auto-updates every 10 seconds • Enhanced connection status • Improved notification system',
+    releaseNotes: 'HOTFIX: Extension connection issues resolved • TypeScript fixes • Enhanced MongoDB compatibility',
     features: [
-      'Auto-update checks every 10 seconds for instant updates',
-      'Enhanced real-time connection status with website',
-      'Improved notification system with detailed update info',
-      'Better error handling and recovery mechanisms'
+      'Fixed extension token generation failures',
+      'Resolved TypeScript build errors',
+      'Enhanced ObjectId validation for MongoDB queries',
+      'Improved user lookup with multiple fallback strategies',
+      'Better error handling for authentication flow'
     ],
-    releaseDate: new Date().toISOString()
+    releaseDate: '2025-11-15T10:18:42.406Z'
   },
   '1.1.0': {
     releaseNotes: 'Auto-update system • Website communication • Dashboard status indicator',

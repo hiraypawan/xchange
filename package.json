@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && npm run build:extension",
+    "build:extension": "node scripts/build-extension.js",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",

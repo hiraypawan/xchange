@@ -54,9 +54,9 @@ export default function ExtensionAuthPage() {
         window.postMessage(authData, '*');
         
         // Also try to communicate with any open extension tabs
-        if (window.chrome && window.chrome.runtime) {
+        if ((window as any).chrome && (window as any).chrome.runtime) {
           try {
-            chrome.runtime.sendMessage(authData);
+            (window as any).chrome.runtime.sendMessage(authData);
           } catch (e) {
             // Extension might not be installed or available
             console.log('Extension communication via chrome.runtime failed, using postMessage');

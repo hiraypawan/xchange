@@ -11,63 +11,96 @@ import {
   Target,
   Clock,
   Award,
+  RefreshCw,
 } from 'lucide-react';
-
-const stats = [
-  {
-    name: 'Total Engagements',
-    value: '0',
-    change: '--',
-    changeType: 'neutral',
-    icon: Heart,
-    color: 'text-red-500',
-    bgColor: 'bg-red-50',
-  },
-  {
-    name: 'Success Rate',
-    value: '--',
-    change: '--',
-    changeType: 'neutral',
-    icon: Target,
-    color: 'text-green-500',
-    bgColor: 'bg-green-50',
-  },
-  {
-    name: 'Active Posts',
-    value: '0',
-    change: '--',
-    changeType: 'neutral',
-    icon: TrendingUp,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-50',
-  },
-  {
-    name: 'Weekly Earnings',
-    value: '0',
-    change: '--',
-    changeType: 'neutral',
-    icon: Award,
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-50',
-  },
-];
-
-const engagementBreakdown = [
-  { type: 'Likes', count: 0, icon: Heart, color: 'text-red-500' },
-  { type: 'Retweets', count: 0, icon: Repeat2, color: 'text-green-500' },
-  { type: 'Replies', count: 0, icon: MessageCircle, color: 'text-blue-500' },
-  { type: 'Follows', count: 0, icon: UserPlus, color: 'text-purple-500' },
-];
+import { useRealTimeStats } from '@/hooks/use-real-time-stats';
 
 export default function DashboardStats() {
+  const { stats, isLoading, error, refetch } = useRealTimeStats();
+
+  const statsData = [
+    {
+      name: 'Total Engagements',
+      value: stats.totalEngagements.toLocaleString(),
+      change: '--',
+      changeType: 'neutral',
+      icon: Heart,
+      color: 'text-red-500',
+      bgColor: 'bg-red-50',
+    },
+    {
+      name: 'Success Rate',
+      value: `${stats.successRate}%`,
+      change: '--',
+      changeType: 'neutral',
+      icon: Target,
+      color: 'text-green-500',
+      bgColor: 'bg-green-50',
+    },
+    {
+      name: 'Completed Tasks',
+      value: stats.completedEngagements.toLocaleString(),
+      change: '--',
+      changeType: 'neutral',
+      icon: TrendingUp,
+      color: 'text-blue-500',
+      bgColor: 'bg-blue-50',
+    },
+    {
+      name: 'Weekly Earnings',
+      value: stats.weeklyEarnings.toLocaleString(),
+      change: `${stats.weeklyChange >= 0 ? '+' : ''}${stats.weeklyChange}%`,
+      changeType: stats.weeklyChange >= 0 ? 'increase' : 'decrease',
+      icon: Award,
+      color: 'text-purple-500',
+      bgColor: 'bg-purple-50',
+    },
+  ];
+
+  const engagementBreakdown = [
+    { type: 'Likes', count: stats.engagementBreakdown.likes, icon: Heart, color: 'text-red-500' },
+    { type: 'Retweets', count: stats.engagementBreakdown.retweets, icon: Repeat2, color: 'text-green-500' },
+    { type: 'Replies', count: stats.engagementBreakdown.replies, icon: MessageCircle, color: 'text-blue-500' },
+    { type: 'Follows', count: stats.engagementBreakdown.follows, icon: UserPlus, color: 'text-purple-500' },
+  ];
+  if (error) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-3">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <h3 className="text-lg font-medium text-red-900 mb-2">Error Loading Stats</h3>
+            <p className="text-red-700 mb-4">{error}</p>
+            <button
+              onClick={refetch}
+              className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Main Stats */}
       <div className="lg:col-span-2">
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-6">Performance Overview</h3>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-medium text-gray-900">Performance Overview</h3>
+            <button
+              onClick={refetch}
+              className="flex items-center px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-md text-sm text-gray-600 transition-colors"
+              title="Refresh data"
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {stats.map((stat, index) => {
+            {statsData.map((stat, index) => {
               const Icon = stat.icon;
               return (
                 <motion.div
@@ -83,11 +116,14 @@ export default function DashboardStats() {
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">{stat.name}</p>
                     <div className="flex items-baseline">
-                      <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
-                      {stat.change !== '--' && (
+                      <p className="text-2xl font-semibold text-gray-900">
+                        {isLoading ? '...' : stat.value}
+                      </p>
+                      {stat.change !== '--' && !isLoading && (
                         <p
                           className={`ml-2 text-sm font-medium ${
-                            stat.changeType === 'increase' ? 'text-green-600' : 'text-red-600'
+                            stat.changeType === 'increase' ? 'text-green-600' : 
+                            stat.changeType === 'decrease' ? 'text-red-600' : 'text-gray-500'
                           }`}
                         >
                           {stat.change}
@@ -110,7 +146,7 @@ export default function DashboardStats() {
             {engagementBreakdown.map((engagement, index) => {
               const Icon = engagement.icon;
               const total = engagementBreakdown.reduce((sum, item) => sum + item.count, 0);
-              const percentage = ((engagement.count / total) * 100).toFixed(1);
+              const percentage = total > 0 ? ((engagement.count / total) * 100).toFixed(1) : '0.0';
               
               return (
                 <motion.div
@@ -128,9 +164,11 @@ export default function DashboardStats() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-gray-900">
-                      {engagement.count.toLocaleString()}
+                      {isLoading ? '...' : engagement.count.toLocaleString()}
                     </p>
-                    <p className="text-xs text-gray-500">{percentage}%</p>
+                    <p className="text-xs text-gray-500">
+                      {isLoading ? '...' : `${percentage}%`}
+                    </p>
                   </div>
                 </motion.div>
               );
@@ -141,18 +179,18 @@ export default function DashboardStats() {
           <div className="mt-6 space-y-3">
             {engagementBreakdown.map((engagement, index) => {
               const total = engagementBreakdown.reduce((sum, item) => sum + item.count, 0);
-              const percentage = (engagement.count / total) * 100;
+              const percentage = total > 0 ? (engagement.count / total) * 100 : 0;
               
               return (
                 <div key={engagement.type} className="space-y-1">
                   <div className="flex justify-between text-xs text-gray-600">
                     <span>{engagement.type}</span>
-                    <span>{percentage.toFixed(1)}%</span>
+                    <span>{isLoading ? '...' : `${percentage.toFixed(1)}%`}</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${percentage}%` }}
+                      animate={{ width: isLoading ? '0%' : `${percentage}%` }}
                       transition={{ delay: 0.5 + index * 0.1, duration: 0.8 }}
                       className="h-2 rounded-full bg-gradient-to-r from-primary-500 to-primary-600"
                     />
@@ -161,6 +199,13 @@ export default function DashboardStats() {
               );
             })}
           </div>
+
+          {total === 0 && !isLoading && (
+            <div className="text-center text-gray-500 mt-6">
+              <p className="text-sm">No engagement data yet.</p>
+              <p className="text-xs">Start engaging to see your breakdown!</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

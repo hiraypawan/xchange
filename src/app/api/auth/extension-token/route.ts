@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import jwt from 'jsonwebtoken';
 import { connectToDatabase } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     const usersCollection = db.collection('users');
 
     // Get user data from database
-    const user = await usersCollection.findOne({ _id: session.user.id });
+    const user = await usersCollection.findOne({ _id: new ObjectId(session.user.id) });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     // Update user's extension status
     await usersCollection.updateOne(
-      { _id: session.user.id },
+      { _id: new ObjectId(session.user.id) },
       {
         $set: {
           extensionConnected: true,
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
 
     // Get user's extension status
     const user = await usersCollection.findOne(
-      { _id: session.user.id },
+      { _id: new ObjectId(session.user.id) },
       { projection: { extensionConnected: 1, extensionConnectedAt: 1, credits: 1 } }
     );
 

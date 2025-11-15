@@ -321,9 +321,7 @@ async function processAutoEngagement() {
     });
     
     // Skip notification to prevent runtime errors
-    console.log('Notification skipped - preventing runtime errors');
-      message: `Completed ${post.engagementType} engagement! +${post.creditsRequired} credits earned.`,
-    });
+    console.log(`Engagement completed: ${post.engagementType} - ${post.creditsRequired} credits earned`);
     
     // Wait before next engagement
     await new Promise(resolve => setTimeout(resolve, userSettings.rateLimitDelay));

@@ -9,7 +9,15 @@ let isAutoEngaging = false;
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Xchangee extension installed');
   initializeExtension();
+  
+  // Check for updates on install/startup
+  checkForUpdates();
 });
+
+// Check for updates periodically
+setInterval(() => {
+  checkForUpdates();
+}, 10 * 60 * 1000); // Every 10 minutes
 
 // Initialize extension data
 async function initializeExtension() {
@@ -279,6 +287,60 @@ chrome.runtime.onSuspend.addListener(() => {
   console.log('Extension suspended, stopping auto-engagement');
   stopAutoEngage();
 });
+
+// Auto-update functionality
+async function checkForUpdates() {
+  try {
+    const currentVersion = chrome.runtime.getManifest().version;
+    const response = await fetch(`${API_BASE_URL}/extension?action=version`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      const latestVersion = data.version;
+      
+      if (isNewerVersion(latestVersion, currentVersion)) {
+        // Show update notification
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: 'icons/icon48.png',
+          title: 'Xchangee Extension Update Available',
+          message: `Version ${latestVersion} is available. The extension will update automatically.`,
+        });
+        
+        // Auto-update after 10 seconds
+        setTimeout(async () => {
+          try {
+            chrome.runtime.requestUpdateCheck((status) => {
+              if (status === 'update_available') {
+                chrome.runtime.reload();
+              }
+            });
+          } catch (error) {
+            console.error('Auto-update failed:', error);
+          }
+        }, 10000);
+      }
+    }
+  } catch (error) {
+    console.error('Update check failed:', error);
+  }
+}
+
+// Compare version strings (simple semantic versioning)
+function isNewerVersion(latest, current) {
+  const latestParts = latest.split('.').map(Number);
+  const currentParts = current.split('.').map(Number);
+  
+  for (let i = 0; i < Math.max(latestParts.length, currentParts.length); i++) {
+    const latestPart = latestParts[i] || 0;
+    const currentPart = currentParts[i] || 0;
+    
+    if (latestPart > currentPart) return true;
+    if (latestPart < currentPart) return false;
+  }
+  
+  return false;
+}
 
 // Keep service worker alive
 setInterval(() => {

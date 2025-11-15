@@ -30,6 +30,36 @@ function initializeTwitter() {
   
   // Listen for messages from background script
   chrome.runtime.onMessage.addListener(handleMessage);
+  
+  // Listen for messages from website for extension detection
+  window.addEventListener('message', handleWebsiteMessage);
+  
+  // Announce extension presence to website
+  announceExtensionPresence();
+}
+
+// Handle messages from the website
+function handleWebsiteMessage(event) {
+  if (event.data?.type === 'XCHANGEE_EXTENSION_CHECK' && event.data?.source === 'website') {
+    window.postMessage({ 
+      type: 'XCHANGEE_EXTENSION_RESPONSE', 
+      source: 'extension',
+      version: chrome.runtime.getManifest().version 
+    }, '*');
+  }
+}
+
+// Announce extension presence to website
+function announceExtensionPresence() {
+  // Send periodic heartbeat to let website know extension is active
+  setInterval(() => {
+    window.postMessage({ 
+      type: 'XCHANGEE_EXTENSION_HEARTBEAT', 
+      source: 'extension',
+      version: chrome.runtime.getManifest().version,
+      timestamp: Date.now()
+    }, '*');
+  }, 30000); // Every 30 seconds
 }
 
 // Add visual indicators for Xchangee-eligible tweets

@@ -1,12 +1,113 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Bell, Search, Plus } from 'lucide-react';
+import { Bell, Search, Plus, Download, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DashboardHeader() {
   const { data: session } = useSession();
+  const [extensionStatus, setExtensionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
+  const [showExtensionDropdown, setShowExtensionDropdown] = useState(false);
+
+  useEffect(() => {
+    checkExtensionStatus();
+    const interval = setInterval(checkExtensionStatus, 10000); // Check every 10 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-extension-dropdown]')) {
+        setShowExtensionDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const checkExtensionStatus = async () => {
+    try {
+      // Check if extension is installed by looking for a specific message
+      const extensionCheck = new Promise<boolean>((resolve) => {
+        const timeout = setTimeout(() => resolve(false), 1000);
+        
+        window.postMessage({ type: 'XCHANGEE_EXTENSION_CHECK', source: 'website' }, '*');
+        
+        const handler = (event: MessageEvent) => {
+          if (event.data?.type === 'XCHANGEE_EXTENSION_RESPONSE' && event.data?.source === 'extension') {
+            clearTimeout(timeout);
+            window.removeEventListener('message', handler);
+            resolve(true);
+          }
+        };
+        
+        window.addEventListener('message', handler);
+      });
+
+      const isConnected = await extensionCheck;
+      setExtensionStatus(isConnected ? 'connected' : 'disconnected');
+    } catch (error) {
+      console.error('Extension check failed:', error);
+      setExtensionStatus('disconnected');
+    }
+  };
+
+  useEffect(() => {
+    // Listen for extension heartbeat messages
+    const handleExtensionMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'XCHANGEE_EXTENSION_HEARTBEAT' && event.data?.source === 'extension') {
+        setExtensionStatus('connected');
+      }
+    };
+
+    window.addEventListener('message', handleExtensionMessage);
+    return () => window.removeEventListener('message', handleExtensionMessage);
+  }, []);
+
+  const handleDownloadExtension = async () => {
+    try {
+      const response = await fetch('/api/extension?action=download');
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'xchangee-extension.zip';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
+  };
+
+  const getExtensionStatusIcon = () => {
+    switch (extensionStatus) {
+      case 'connected':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'disconnected':
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
+      default:
+        return <div className="h-4 w-4 border-2 border-gray-300 border-t-primary-500 rounded-full animate-spin" />;
+    }
+  };
+
+  const getExtensionStatusText = () => {
+    switch (extensionStatus) {
+      case 'connected':
+        return 'Extension Connected';
+      case 'disconnected':
+        return 'Extension Not Found';
+      default:
+        return 'Checking...';
+    }
+  };
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
@@ -42,6 +143,52 @@ export default function DashboardHeader() {
               <Bell className="h-6 w-6" />
               <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-400 ring-2 ring-white" />
             </button>
+
+            {/* Extension Status */}
+            <div className="relative" data-extension-dropdown>
+              <button
+                onClick={() => setShowExtensionDropdown(!showExtensionDropdown)}
+                className="flex items-center space-x-2 bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors"
+              >
+                {getExtensionStatusIcon()}
+                <span className="text-sm font-medium text-gray-700 hidden sm:block">
+                  {getExtensionStatusText()}
+                </span>
+              </button>
+
+              {/* Extension Dropdown */}
+              {showExtensionDropdown && (
+                <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                  <div className="p-4">
+                    <div className="flex items-center space-x-2 mb-3">
+                      {getExtensionStatusIcon()}
+                      <span className="font-medium text-gray-900">{getExtensionStatusText()}</span>
+                    </div>
+                    
+                    {extensionStatus === 'disconnected' && (
+                      <>
+                        <p className="text-sm text-gray-600 mb-3">
+                          Install our Chrome extension to automate engagements and earn credits while browsing Twitter.
+                        </p>
+                        <button
+                          onClick={handleDownloadExtension}
+                          className="w-full flex items-center justify-center space-x-2 bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 transition-colors"
+                        >
+                          <Download className="h-4 w-4" />
+                          <span>Download Extension</span>
+                        </button>
+                      </>
+                    )}
+                    
+                    {extensionStatus === 'connected' && (
+                      <p className="text-sm text-green-600">
+                        Extension is working properly. You can now earn credits automatically while browsing Twitter!
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* User Credits Display */}
             <div className="flex items-center space-x-2 bg-primary-50 px-3 py-1 rounded-full">

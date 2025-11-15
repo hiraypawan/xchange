@@ -15,12 +15,34 @@ import {
   Users,
   Star,
   ArrowRight,
-  Play
+  Play,
+  Download,
+  Chrome
 } from 'lucide-react';
 
 export default function LandingPage() {
   const handleSignIn = () => {
     signIn('twitter', { callbackUrl: '/dashboard' });
+  };
+
+  const handleDownloadExtension = async () => {
+    try {
+      const response = await fetch('/api/extension?action=download');
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'xchangee-extension.zip';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
   };
 
   const features = [
@@ -280,6 +302,115 @@ export default function LandingPage() {
                 <p className="text-gray-600">{step.description}</p>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Chrome Extension Section */}
+      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center text-white mb-12">
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-3xl md:text-4xl font-bold mb-4"
+            >
+              Supercharge with Our Chrome Extension
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="text-xl text-blue-100 max-w-2xl mx-auto"
+            >
+              Automate your Twitter engagement and earn credits while browsing. 
+              No manual work required - let our extension do the work for you!
+            </motion.p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Features List */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="space-y-6"
+            >
+              {[
+                {
+                  icon: Zap,
+                  title: 'Auto-Engagement',
+                  description: 'Automatically like, retweet, and engage with posts while you browse Twitter'
+                },
+                {
+                  icon: Shield,
+                  title: 'Safe & Smart',
+                  description: 'Intelligent rate limiting and human-like behavior to keep your account safe'
+                },
+                {
+                  icon: TrendingUp,
+                  title: 'Real-time Sync',
+                  description: 'Earnings sync instantly with your dashboard - see credits roll in live'
+                },
+                {
+                  icon: Star,
+                  title: 'Auto-Updates',
+                  description: 'Extension automatically updates with new features and improvements'
+                }
+              ].map((feature, index) => {
+                const Icon = feature.icon;
+                return (
+                  <div key={feature.title} className="flex items-start space-x-4">
+                    <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Icon className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white mb-1">{feature.title}</h3>
+                      <p className="text-blue-100">{feature.description}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </motion.div>
+
+            {/* Download CTA */}
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="text-center lg:text-left"
+            >
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
+                <div className="flex justify-center lg:justify-start mb-6">
+                  <div className="w-20 h-20 bg-white rounded-xl flex items-center justify-center">
+                    <Chrome className="h-12 w-12 text-blue-600" />
+                  </div>
+                </div>
+                
+                <h3 className="text-2xl font-bold text-white mb-4">
+                  Download for Chrome
+                </h3>
+                
+                <p className="text-blue-100 mb-6">
+                  Install our extension and start earning credits automatically. 
+                  Compatible with Chrome and all Chromium-based browsers.
+                </p>
+                
+                <button
+                  onClick={handleDownloadExtension}
+                  className="w-full bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 mb-4"
+                >
+                  <Download className="h-5 w-5" />
+                  <span>Download Extension</span>
+                </button>
+                
+                <p className="text-sm text-blue-200">
+                  Free • Auto-updates • Safe & Secure
+                </p>
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>

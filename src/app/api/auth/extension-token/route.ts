@@ -29,17 +29,30 @@ export async function POST(request: NextRequest) {
     // Get user data from database
     console.log('Looking up user with ID:', session.user.id);
     
-    // Try multiple query approaches in case the user ID format varies
-    let user = await usersCollection.findOne({ _id: new ObjectId(session.user.id) });
+    let user = null;
     
-    if (!user) {
-      console.log('User not found with ObjectId, trying string ID...');
-      user = await usersCollection.findOne({ _id: session.user.id });
+    // Try ObjectId format first if the ID is a valid ObjectId string
+    if (ObjectId.isValid(session.user.id)) {
+      console.log('Trying ObjectId lookup...');
+      user = await usersCollection.findOne({ _id: new ObjectId(session.user.id) });
     }
     
+    // If not found and we have an email, try email lookup
     if (!user && session.user.email) {
-      console.log('User not found with ID, trying email lookup...');
+      console.log('User not found with ObjectId, trying email lookup...');
       user = await usersCollection.findOne({ email: session.user.email });
+    }
+    
+    // If still not found, try looking for string-based IDs in custom fields
+    if (!user) {
+      console.log('Trying custom ID field lookup...');
+      user = await usersCollection.findOne({ 
+        $or: [
+          { userId: session.user.id },
+          { customId: session.user.id },
+          { authId: session.user.id }
+        ]
+      });
     }
 
     if (!user) {
@@ -145,10 +158,22 @@ export async function GET(request: NextRequest) {
     const usersCollection = db.collection('users');
 
     // Get user's extension status
-    const user = await usersCollection.findOne(
-      { _id: new ObjectId(session.user.id) },
-      { projection: { extensionConnected: 1, extensionConnectedAt: 1, credits: 1 } }
-    );
+    let user = null;
+    
+    if (ObjectId.isValid(session.user.id)) {
+      user = await usersCollection.findOne(
+        { _id: new ObjectId(session.user.id) },
+        { projection: { extensionConnected: 1, extensionConnectedAt: 1, credits: 1 } }
+      );
+    }
+    
+    // Fallback to email lookup if ObjectId lookup fails
+    if (!user && session.user.email) {
+      user = await usersCollection.findOne(
+        { email: session.user.email },
+        { projection: { extensionConnected: 1, extensionConnectedAt: 1, credits: 1 } }
+      );
+    }
 
     return NextResponse.json({
       success: true,

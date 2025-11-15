@@ -4,6 +4,7 @@ const API_BASE_URL = 'https://xchangee.vercel.app/api';
 let authToken = null;
 let userId = null;
 let isAutoEngaging = false;
+let autoEngageInterval = null;
 
 // Initialize extension
 chrome.runtime.onInstalled.addListener(() => {
@@ -14,15 +15,15 @@ chrome.runtime.onInstalled.addListener(() => {
   checkForUpdates();
 });
 
-// Check for updates periodically - more frequent for immediate updates
-setInterval(() => {
+// Check for updates periodically - reasonable interval
+let updateCheckInterval = setInterval(() => {
   checkForUpdates();
-}, 10 * 1000); // Every 10 seconds
+}, 5 * 60 * 1000); // Every 5 minutes instead of 10 seconds
 
 // Also check for updates when extension starts
 setTimeout(() => {
   checkForUpdates();
-}, 5000); // Check 5 seconds after startup
+}, 30000); // Check 30 seconds after startup instead of 5
 
 // Initialize extension data
 async function initializeExtension() {
@@ -264,8 +265,13 @@ function startAutoEngage() {
   isAutoEngaging = true;
   console.log('Auto-engagement started');
   
+  // Clear any existing interval first
+  if (autoEngageInterval) {
+    clearInterval(autoEngageInterval);
+  }
+  
   // Set up periodic check for new opportunities
-  setInterval(async () => {
+  autoEngageInterval = setInterval(async () => {
     if (!isAutoEngaging) return;
     
     const settings = await chrome.storage.local.get('settings');
@@ -290,6 +296,10 @@ function startAutoEngage() {
 // Stop auto-engagement
 function stopAutoEngage() {
   isAutoEngaging = false;
+  if (autoEngageInterval) {
+    clearInterval(autoEngageInterval);
+    autoEngageInterval = null;
+  }
   console.log('Auto-engagement stopped');
 }
 
@@ -351,59 +361,84 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   }
 });
 
-// Error handling
+// Error handling and cleanup
 chrome.runtime.onSuspend.addListener(() => {
-  console.log('Extension suspended, stopping auto-engagement');
+  console.log('Extension suspended, cleaning up resources');
   stopAutoEngage();
+  
+  // Clear all intervals
+  if (updateCheckInterval) {
+    clearInterval(updateCheckInterval);
+    updateCheckInterval = null;
+  }
+  
+  // Clear any pending timeouts
+  console.log('All resources cleaned up');
 });
 
-// Auto-update functionality with direct file replacement
+// Auto-update functionality with proper error handling
 async function checkForUpdates() {
   try {
     const currentVersion = chrome.runtime.getManifest().version;
-    const response = await fetch(`${API_BASE_URL}/extension?action=version`);
+    console.log(`Checking for updates... Current version: ${currentVersion}`);
     
-    if (response.ok) {
-      const data = await response.json();
-      const latestVersion = data.version;
+    const response = await fetch(`${API_BASE_URL}/extension?action=version`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      // Add timeout to prevent hanging requests
+      signal: AbortSignal.timeout(10000) // 10 second timeout
+    });
+    
+    if (!response.ok) {
+      console.log(`Update check failed: HTTP ${response.status}`);
+      return;
+    }
+    
+    const data = await response.json();
+    const latestVersion = data.version;
+    
+    if (isNewerVersion(latestVersion, currentVersion)) {
+      console.log(`Update available: ${currentVersion} -> ${latestVersion}`);
       
-      if (isNewerVersion(latestVersion, currentVersion)) {
-        console.log(`Update available: ${currentVersion} -> ${latestVersion}`);
-        
-        // Skip notifications completely to prevent runtime errors
-        console.log('Update notification skipped to prevent runtime errors');
-        // All notification functionality disabled until extension auto-updates
-        
-        // Store update info
-        await chrome.storage.local.set({
-          pendingUpdate: {
-            version: latestVersion,
-            releaseNotes: data.releaseNotes,
-            features: data.features,
-            updateTime: Date.now(),
-            downloadUrl: data.updateUrl || `${API_BASE_URL}/extension?action=download`
-          }
-        });
+      // Store update info for user notification
+      await chrome.storage.local.set({
+        pendingUpdate: {
+          version: latestVersion,
+          releaseNotes: data.releaseNotes,
+          features: data.features,
+          updateTime: Date.now(),
+          downloadUrl: data.updateUrl || `${API_BASE_URL}/extension?action=download`
+        }
+      });
 
-        // Auto-update immediately to fix notification issues
-        console.log('Starting immediate auto-update to resolve notification errors');
-        setTimeout(async () => {
-          await performAutoUpdate(latestVersion, data);
-        }, 2000); // Reduced to 2 seconds
-      }
+      console.log('Update information stored. User can update manually to avoid errors.');
+    } else {
+      console.log('Extension is up to date');
     }
   } catch (error) {
-    console.error('Update check failed:', error);
+    console.error('Update check failed:', error.message);
+    // Don't spam with update checks if there are network issues
+    if (error.name === 'TimeoutError' || error.message.includes('fetch')) {
+      console.log('Network issues detected, will retry later');
+    }
   }
 }
 
-// Perform automatic update by downloading and replacing extension files
-async function performAutoUpdate(version, updateData) {
-  console.log(`EMERGENCY FORCE RELOAD: Starting auto-update to version ${version}`);
-  console.log('BYPASSING ALL CHROME APIs - Direct reload to escape notification errors');
+// Manual update function - let users update when ready
+async function requestManualUpdate(version, updateData) {
+  console.log(`Manual update requested for version ${version}`);
+  console.log('Please update the extension manually from the Chrome Web Store or extension management page');
   
-  // Immediate reload without any async operations that could fail
-  chrome.runtime.reload();
+  // Store update request for popup to display
+  await chrome.storage.local.set({
+    updateRequested: {
+      version: version,
+      requestTime: Date.now(),
+      updateData: updateData
+    }
+  });
 }
 
 // Compare version strings (simple semantic versioning)
@@ -448,21 +483,19 @@ async function clearUpdateInfo() {
   }
 }
 
-// Post-update success notification and cleanup
+// Extension startup handler
 chrome.runtime.onStartup.addListener(async () => {
-  const data = await chrome.storage.local.get(['updateSuccess', 'pendingUpdate']);
+  console.log('Extension starting up...');
   
-  if (data.updateSuccess) {
-    // Skip startup notification to prevent runtime errors
-    console.log(`Auto-update to v${data.updateSuccess.version} completed successfully!`);
-    
-    // Clear the update success info after showing
-    await chrome.storage.local.remove(['updateSuccess']);
-  }
+  // Initialize extension on startup
+  await initializeExtension();
   
-  // Clean up any leftover pending update
-  if (data.pendingUpdate) {
-    await chrome.storage.local.remove(['pendingUpdate']);
+  // Clean up any old update data that might cause issues
+  try {
+    await chrome.storage.local.remove(['updateSuccess', 'updateRequested']);
+    console.log('Cleaned up old update data');
+  } catch (error) {
+    console.error('Failed to clean up update data:', error);
   }
 });
 

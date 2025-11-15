@@ -48,9 +48,18 @@ export default function DashboardHeader() {
 
   const checkExtensionStatus = async () => {
     try {
-      // Check if extension is installed by looking for a specific message
+      // First check if extension is authenticated via API
+      const authCheck = fetch('/api/auth/extension-token', { 
+        method: 'GET',
+        credentials: 'include' 
+      })
+      .then(res => res.json())
+      .then(data => data.isExtensionConnected || false)
+      .catch(() => false);
+
+      // Also check if extension is installed by looking for a specific message
       const extensionCheck = new Promise<boolean>((resolve) => {
-        const timeout = setTimeout(() => resolve(false), 1000);
+        const timeout = setTimeout(() => resolve(false), 2000);
         
         window.postMessage({ type: 'XCHANGEE_EXTENSION_CHECK', source: 'website' }, '*');
         
@@ -65,8 +74,16 @@ export default function DashboardHeader() {
         window.addEventListener('message', handler);
       });
 
-      const isConnected = await extensionCheck;
+      const [isAuthenticated, isInstalled] = await Promise.all([authCheck, extensionCheck]);
+      const isConnected = isAuthenticated && isInstalled;
+      
       setExtensionStatus(isConnected ? 'connected' : 'disconnected');
+      
+      console.log('Extension status check:', {
+        isAuthenticated,
+        isInstalled,
+        isConnected
+      });
     } catch (error) {
       console.error('Extension check failed:', error);
       setExtensionStatus('disconnected');

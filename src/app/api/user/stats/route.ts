@@ -8,7 +8,9 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.twitterId) {
+    console.log('Stats API - session:', session);
+    
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -17,10 +19,29 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
     
-    // Get user
-    const user = await db.collection('users').findOne(
-      { twitterId: session.user.twitterId }
-    );
+    // Get user by multiple possible identifiers
+    let user = null;
+    
+    // Try by ObjectId first (if session.user.id looks like an ObjectId)
+    if (session.user.id.match(/^[0-9a-fA-F]{24}$/)) {
+      user = await db.collection('users').findOne({ 
+        _id: new (await import('mongodb')).ObjectId(session.user.id) 
+      });
+    }
+    
+    // If not found, try by email
+    if (!user && session.user.email) {
+      user = await db.collection('users').findOne({ 
+        email: session.user.email 
+      });
+    }
+    
+    // If not found, try by twitterId (if available)
+    if (!user && session.user.twitterId) {
+      user = await db.collection('users').findOne({ 
+        twitterId: session.user.twitterId 
+      });
+    }
 
     if (!user) {
       return NextResponse.json(

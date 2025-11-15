@@ -70,6 +70,20 @@ type VersionInfo = {
 };
 
 const VERSION_HISTORY: Record<string, VersionInfo> = {
+  '1.4.2': {
+    releaseNotes: 'CRITICAL HOTFIX: Force extension reload to bypass broken auto-update • Immediate fix for stuck v1.3.6 users • Zero notifications',
+    features: [
+      'Emergency force reload mechanism to bypass broken notification-based updates',
+      'Immediate extension restart without download dependency',
+      'Clears all stored data to eliminate notification error persistence',
+      'Direct chrome.runtime.reload() call to force version refresh',
+      'Bypasses all download/installation steps that could fail',
+      'Emergency fix specifically for users stuck on v1.3.6 with notification errors',
+      'Guaranteed update mechanism that cannot be blocked by Chrome API issues',
+      'Completely eliminated all remaining notification calls from startup and error handling'
+    ],
+    releaseDate: new Date().toISOString()
+  },
   '1.4.1': {
     releaseNotes: 'EMERGENCY NOTIFICATION DISABLE: Completely removed notifications to eliminate runtime errors • Faster silent auto-updates • Zero errors',
     features: [
@@ -82,7 +96,7 @@ const VERSION_HISTORY: Record<string, VersionInfo> = {
       'Immediate resolution of notification-related crashes and errors',
       'Clean console output without any notification-related spam'
     ],
-    releaseDate: new Date().toISOString()
+    releaseDate: '2025-11-15T19:15:00.000Z'
   },
   '1.4.0': {
     releaseNotes: 'NOTIFICATION PERMISSION FIXES: Added permission checks before notification creation • Eliminated all runtime errors • Enhanced notification system',
@@ -277,7 +291,7 @@ async function handleVersionCheck() {
     const manifest = JSON.parse(manifestContent);
     
     const version = manifest.version as string;
-    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.4.1'];
+    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.4.2'];
     
     return NextResponse.json({
       version: manifest.version,

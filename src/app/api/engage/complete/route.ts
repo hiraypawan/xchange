@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Start transaction
-    const client = await db.client;
+    const { client } = await connectToDatabase();
     const transactionSession = client.startSession();
 
     try {

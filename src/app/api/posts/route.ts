@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
     // For now, let's bypass the schema validation and handle the basic parameters manually
     const limit = Math.min(parseInt(query.limit || '10'), 50); // Max 50 posts
     const status = query.status === 'active' ? 'active' : 'active'; // Default to active
-    const skip = parseInt(query.skip || '0');
+    const skipParam = parseInt(query.skip || '0');
     
-    console.log('Posts API - Using params:', { limit, status, skip });
+    console.log('Posts API - Using params:', { limit, status, skip: skipParam });
     
     // Skip validation for now and proceed with basic params
     /*
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
     // Exclude expired posts
     filter.expiresAt = { $gt: new Date() };
 
-    const skip = (page - 1) * limit;
+    const calculatedSkip = (page - 1) * limit;
     const sort: any = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
       db.collection('posts')
         .find(filter)
         .sort(sort)
-        .skip(skip)
+        .skip(skipParam || calculatedSkip)
         .limit(limit)
         .toArray(),
       db.collection('posts').countDocuments(filter)

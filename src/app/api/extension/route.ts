@@ -82,7 +82,7 @@ const VERSION_HISTORY: Record<string, VersionInfo> = {
       'Cleaned up console output for better debugging experience',
       'Improved overall application stability and user experience'
     ],
-    releaseDate: new Date().toISOString()
+    releaseDate: '2025-11-15T12:13:43.849Z'
   },
   '1.3.6': {
     releaseNotes: 'NOTIFICATION ERROR FIXES: Resolved Chrome notification icon issues • Clean notification system • No more errors',

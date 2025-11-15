@@ -502,6 +502,30 @@ export default function LandingPage() {
             <p className="text-gray-400 mb-4">
               The credit-based engagement platform for Twitter growth
             </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
+              <p className="text-sm text-gray-400">
+                Developed by{' '}
+                <a 
+                  href="https://github.com/W@b_Gen" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary-400 hover:text-primary-300 transition-colors"
+                >
+                  W@b_Gen
+                </a>
+              </p>
+              <p className="text-sm text-gray-400">
+                Telegram Support:{' '}
+                <a 
+                  href="https://t.me/xchangeetool" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary-400 hover:text-primary-300 transition-colors"
+                >
+                  @xchangeetool
+                </a>
+              </p>
+            </div>
             <p className="text-sm text-gray-500">
               © 2024 Xchangee. All rights reserved.
             </p>

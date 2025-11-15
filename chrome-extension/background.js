@@ -375,11 +375,15 @@ async function checkForUpdates() {
         console.log(`Update available: ${currentVersion} -> ${latestVersion}`);
         
         // Show update notification
-        chrome.notifications.create('xchangee-update-available', {
-          type: 'basic',
-          title: `Xchangee Update v${latestVersion}`,
-          message: `${data.releaseNotes || 'Latest features and improvements'}\n\nUpdating automatically in 5 seconds...`,
-        });
+        try {
+          chrome.notifications.create('xchangee-update-available', {
+            type: 'basic',
+            title: `Xchangee Update v${latestVersion}`,
+            message: `${data.releaseNotes || 'Latest features and improvements'} - Updating in 5 seconds...`,
+          });
+        } catch (err) {
+          console.log('Notification failed:', err);
+        }
         
         // Store update info
         await chrome.storage.local.set({
@@ -409,11 +413,15 @@ async function performAutoUpdate(version, updateData) {
     console.log(`Starting auto-update to version ${version}`);
     
     // Show updating notification
-    chrome.notifications.create('xchangee-updating', {
-      type: 'basic',
-      title: 'Xchangee Updating...',
-      message: `Installing v${version}. Please wait...`,
-    });
+    try {
+      chrome.notifications.create('xchangee-updating', {
+        type: 'basic',
+        title: 'Xchangee Updating...',
+        message: `Installing v${version}. Please wait...`,
+      });
+    } catch (err) {
+      console.log('Updating notification failed:', err);
+    }
 
     // Download the latest extension files
     const downloadUrl = updateData.downloadUrl || `${API_BASE_URL}/extension?action=download`;
@@ -437,11 +445,15 @@ async function performAutoUpdate(version, updateData) {
     await chrome.storage.local.remove(['pendingUpdate']);
 
     // Show success notification
-    chrome.notifications.create('xchangee-update-success', {
-      type: 'basic',
-      title: `Updated to v${version}!`,
-      message: `${updateData.releaseNotes || 'Extension updated successfully'}\n\nRestarting extension...`,
-    });
+    try {
+      chrome.notifications.create('xchangee-update-success', {
+        type: 'basic',
+        title: `Updated to v${version}!`,
+        message: `${updateData.releaseNotes || 'Extension updated successfully'} - Restarting extension...`,
+      });
+    } catch (err) {
+      console.log('Success notification failed:', err);
+    }
 
     // Wait a moment for notification to show, then reload
     setTimeout(() => {
@@ -453,11 +465,15 @@ async function performAutoUpdate(version, updateData) {
     console.error('Auto-update failed:', error);
     
     // Show error notification
-    chrome.notifications.create('xchangee-update-error', {
-      type: 'basic',
-      title: 'Update Failed',
-      message: 'Auto-update failed. Extension will continue with current version.',
-    });
+    try {
+      chrome.notifications.create('xchangee-update-error', {
+        type: 'basic',
+        title: 'Update Failed',
+        message: 'Auto-update failed. Extension will continue with current version.',
+      });
+    } catch (err) {
+      console.log('Error notification failed:', err);
+    }
   }
 }
 
@@ -509,11 +525,15 @@ chrome.runtime.onStartup.addListener(async () => {
   
   if (data.updateSuccess) {
     // Show update success notification
-    chrome.notifications.create('xchangee-startup-success', {
-      type: 'basic',
-      title: 'Auto-Update Complete!',
-      message: `Xchangee v${data.updateSuccess.version} installed successfully!\n\n${data.updateSuccess.releaseNotes || 'Latest features are now active!'}`,
-    });
+    try {
+      chrome.notifications.create('xchangee-startup-success', {
+        type: 'basic',
+        title: 'Auto-Update Complete!',
+        message: `Xchangee v${data.updateSuccess.version} installed successfully! ${data.updateSuccess.releaseNotes || 'Latest features are now active!'}`,
+      });
+    } catch (err) {
+      console.log('Startup notification failed:', err);
+    }
     
     // Clear the update success info after showing
     await chrome.storage.local.remove(['updateSuccess']);
@@ -528,11 +548,15 @@ chrome.runtime.onStartup.addListener(async () => {
 // Show authentication success notification
 function showAuthSuccessNotification(userData) {
   const displayName = userData.displayName || userData.username || 'User';
-  chrome.notifications.create('xchangee-auth-success', {
-    type: 'basic',
-    title: 'Xchangee Extension Connected!',
-    message: `Welcome ${displayName}! Your extension is now connected and ready to earn credits automatically.`,
-  });
+  try {
+    chrome.notifications.create('xchangee-auth-success', {
+      type: 'basic',
+      title: 'Xchangee Extension Connected!',
+      message: `Welcome ${displayName}! Your extension is now connected and ready to earn credits automatically.`,
+    });
+  } catch (err) {
+    console.log('Auth notification failed:', err);
+  }
 }
 
 // Send heartbeat to website tabs to announce extension presence

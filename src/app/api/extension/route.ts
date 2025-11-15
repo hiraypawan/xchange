@@ -221,7 +221,7 @@ async function handleVersionCheck() {
     const manifest = JSON.parse(manifestContent);
     
     const version = manifest.version as string;
-    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.7'];
+    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.8'];
     
     return NextResponse.json({
       version: manifest.version,

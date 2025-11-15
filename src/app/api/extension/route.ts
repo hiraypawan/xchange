@@ -63,7 +63,13 @@ async function handleDownload() {
 }
 
 // Version history with detailed release notes
-const VERSION_HISTORY = {
+type VersionInfo = {
+  releaseNotes: string;
+  features: string[];
+  releaseDate: string;
+};
+
+const VERSION_HISTORY: Record<string, VersionInfo> = {
   '1.2.0': {
     releaseNotes: 'Real-time auto-updates every 10 seconds • Enhanced connection status • Improved notification system',
     features: [
@@ -102,7 +108,8 @@ async function handleVersionCheck() {
     const manifestContent = await fs.readFile(manifestPath, 'utf-8');
     const manifest = JSON.parse(manifestContent);
     
-    const versionInfo = VERSION_HISTORY[manifest.version] || VERSION_HISTORY['1.2.0'];
+    const version = manifest.version as string;
+    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.2.0'];
     
     return NextResponse.json({
       version: manifest.version,

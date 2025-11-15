@@ -70,6 +70,20 @@ type VersionInfo = {
 };
 
 const VERSION_HISTORY: Record<string, VersionInfo> = {
+  '1.3.7': {
+    releaseNotes: 'API FIXES: Resolved posts feed 400 errors • Reduced console noise • Improved message filtering',
+    features: [
+      'Fixed posts API 400 errors by bypassing problematic validation schema',
+      'Added manual parameter handling for posts endpoint',
+      'Reduced console noise by filtering out non-Xchangee extension messages',
+      'Improved message handling to ignore irrelevant browser extension communications',
+      'Fixed posts feed loading issues on dashboard',
+      'Enhanced API error handling and debugging',
+      'Cleaned up console output for better debugging experience',
+      'Improved overall application stability and user experience'
+    ],
+    releaseDate: new Date().toISOString()
+  },
   '1.3.6': {
     releaseNotes: 'NOTIFICATION ERROR FIXES: Resolved Chrome notification icon issues • Clean notification system • No more errors',
     features: [
@@ -82,7 +96,7 @@ const VERSION_HISTORY: Record<string, VersionInfo> = {
       'Eliminated notification-related console errors',
       'Enhanced user experience with error-free notifications'
     ],
-    releaseDate: new Date().toISOString()
+    releaseDate: '2025-11-15T18:00:00.000Z'
   },
   '1.3.5': {
     releaseNotes: 'COMMUNICATION FIXES: Enhanced heartbeat system • Fixed extension status detection • Improved logging',
@@ -207,7 +221,7 @@ async function handleVersionCheck() {
     const manifest = JSON.parse(manifestContent);
     
     const version = manifest.version as string;
-    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.6'];
+    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.7'];
     
     return NextResponse.json({
       version: manifest.version,

@@ -178,7 +178,7 @@ export default function LandingPage() {
             >
               <div className="flex items-center gap-2">
                 <Star className="h-4 w-4 text-yellow-500" />
-                <span>100 Free Credits</span>
+                <span>2 Free Credits</span>
               </div>
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-green-500" />

@@ -38,7 +38,7 @@ export const authOptions: NextAuthOptions = {
           // Check if user exists
           const existingUser = await db.collection('users').findOne({
             $or: [
-              { twitterId: profile.id },
+              { twitterId: (profile as any).id },
               { email: user.email }
             ]
           });
@@ -46,10 +46,10 @@ export const authOptions: NextAuthOptions = {
           if (!existingUser) {
             // Create new user with starting credits
             const newUser: Partial<User> = {
-              twitterId: profile.id,
-              username: profile.username || user.name?.replace(/\s+/g, '_').toLowerCase(),
-              displayName: profile.name || user.name || '',
-              avatar: profile.profile_image_url || user.image,
+              twitterId: (profile as any).id,
+              username: (profile as any).username || user.name?.replace(/\s+/g, '_').toLowerCase(),
+              displayName: (profile as any).name || user.name || '',
+              avatar: (profile as any).profile_image_url || user.image,
               email: user.email,
               credits: parseInt(process.env.USER_STARTING_CREDITS || '100'),
               totalEarned: 0,
@@ -77,7 +77,7 @@ export const authOptions: NextAuthOptions = {
 
             // Create welcome credit transaction
             await db.collection('credit_transactions').insertOne({
-              userId: profile.id,
+              userId: (profile as any).id,
               type: 'bonus',
               amount: parseInt(process.env.USER_STARTING_CREDITS || '100'),
               balance: parseInt(process.env.USER_STARTING_CREDITS || '100'),

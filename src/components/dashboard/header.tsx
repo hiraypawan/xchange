@@ -48,40 +48,47 @@ export default function DashboardHeader() {
 
   const checkExtensionStatus = async () => {
     try {
-      // First check if extension is authenticated via API
-      const authCheck = fetch('/api/auth/extension-token', { 
-        method: 'GET',
-        credentials: 'include' 
-      })
-      .then(res => res.json())
-      .then(data => data.isExtensionConnected || false)
-      .catch(() => false);
-
-      // Also check if extension is installed by looking for a specific message
-      const extensionCheck = new Promise<boolean>((resolve) => {
-        const timeout = setTimeout(() => resolve(false), 2000);
+      // Check if extension is installed and authenticated by listening for heartbeat
+      const extensionCheck = new Promise<{isInstalled: boolean, isAuthenticated: boolean}>((resolve) => {
+        const timeout = setTimeout(() => resolve({isInstalled: false, isAuthenticated: false}), 2000);
         
-        window.postMessage({ type: 'XCHANGEE_EXTENSION_CHECK', source: 'website' }, '*');
+        let heartbeatReceived = false;
         
         const handler = (event: MessageEvent) => {
           if (event.data?.type === 'XCHANGEE_EXTENSION_RESPONSE' && event.data?.source === 'extension') {
             clearTimeout(timeout);
             window.removeEventListener('message', handler);
-            resolve(true);
+            heartbeatReceived = true;
+            resolve({
+              isInstalled: true, 
+              isAuthenticated: event.data.isAuthenticated || false
+            });
+          }
+          
+          // Also listen for heartbeat messages which include auth status
+          if (event.data?.type === 'XCHANGEE_EXTENSION_HEARTBEAT' && event.data?.source === 'extension') {
+            clearTimeout(timeout);
+            window.removeEventListener('message', handler);
+            heartbeatReceived = true;
+            resolve({
+              isInstalled: true,
+              isAuthenticated: event.data.isAuthenticated || false
+            });
           }
         };
         
         window.addEventListener('message', handler);
+        window.postMessage({ type: 'XCHANGEE_EXTENSION_CHECK', source: 'website' }, '*');
       });
 
-      const [isAuthenticated, isInstalled] = await Promise.all([authCheck, extensionCheck]);
-      const isConnected = isAuthenticated && isInstalled;
+      const extensionStatus = await extensionCheck;
+      const isConnected = extensionStatus.isInstalled && extensionStatus.isAuthenticated;
       
       setExtensionStatus(isConnected ? 'connected' : 'disconnected');
       
       console.log('Extension status check:', {
-        isAuthenticated,
-        isInstalled,
+        isInstalled: extensionStatus.isInstalled,
+        isAuthenticated: extensionStatus.isAuthenticated,
         isConnected
       });
     } catch (error) {
@@ -113,18 +120,42 @@ export default function DashboardHeader() {
 
   const handleDownloadExtension = async () => {
     try {
-      const response = await fetch('/api/extension?action=download');
+      // First get the latest version info
+      const versionResponse = await fetch('/api/extension?action=version', {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      let latestVersion = 'latest';
+      if (versionResponse.ok) {
+        const versionData = await versionResponse.json();
+        latestVersion = versionData.version;
+      }
+      
+      // Always get the latest extension version dynamically
+      const response = await fetch('/api/extension?action=download', {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        a.download = 'xchangee-extension.zip';
+        a.download = `xchangee-extension-v${latestVersion}.zip`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+        
+        // Show success message
+        console.log(`Downloaded latest Xchangee extension v${latestVersion}`);
       }
     } catch (error) {
       console.error('Download failed:', error);

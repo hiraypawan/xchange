@@ -41,11 +41,16 @@ function initializeTwitter() {
 // Handle messages from the website
 function handleWebsiteMessage(event) {
   if (event.data?.type === 'XCHANGEE_EXTENSION_CHECK' && event.data?.source === 'website') {
-    window.postMessage({ 
-      type: 'XCHANGEE_EXTENSION_RESPONSE', 
-      source: 'extension',
-      version: chrome.runtime.getManifest().version 
-    }, '*');
+    // Get auth status and respond immediately
+    chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' }, (authResponse) => {
+      window.postMessage({ 
+        type: 'XCHANGEE_EXTENSION_RESPONSE', 
+        source: 'extension',
+        version: chrome.runtime.getManifest().version,
+        isAuthenticated: authResponse?.isAuthenticated || false,
+        userId: authResponse?.userId || null
+      }, '*');
+    });
   }
   
   // Handle auth success from extension auth page

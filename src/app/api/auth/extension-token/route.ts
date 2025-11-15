@@ -8,22 +8,40 @@ import { ObjectId } from 'mongodb';
 export async function POST(request: NextRequest) {
   try {
     console.log('Extension token request started');
+    console.log('Request URL:', request.url);
+    console.log('Request method:', request.method);
     console.log('Headers:', Object.fromEntries(request.headers.entries()));
+    
+    // Check if cookies are present
+    const cookies = request.headers.get('cookie');
+    console.log('Cookies present:', cookies ? 'yes' : 'no');
+    console.log('Cookie header:', cookies);
     
     // Get session with proper options for API routes
     const session = await getServerSession(authOptions);
 
-    console.log('Session:', session ? 'exists' : 'null', session?.user?.id);
-    
+    console.log('Session status:', session ? 'exists' : 'null');
     if (session) {
-      console.log('Session user:', JSON.stringify(session.user, null, 2));
+      console.log('Session user ID:', session.user?.id);
+      console.log('Session user data:', JSON.stringify(session.user, null, 2));
+    } else {
+      console.log('No session found - checking why...');
+      console.log('NextAuth.js session is null');
     }
 
     if (!session?.user?.id) {
-      console.log('No session or user ID found');
+      console.log('Authentication failed - No session or user ID found');
+      console.log('Returning 401 with details');
       
       // Add CORS headers for extension communication
-      const response = NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      const response = NextResponse.json({ 
+        error: 'Not authenticated',
+        debug: {
+          sessionExists: !!session,
+          userId: session?.user?.id || null,
+          cookiesPresent: !!cookies
+        }
+      }, { status: 401 });
       response.headers.set('Access-Control-Allow-Origin', '*');
       response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');

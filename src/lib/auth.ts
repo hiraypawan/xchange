@@ -34,8 +34,9 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/error',
   },
   session: {
-    strategy: 'jwt',
+    strategy: 'database',
     maxAge: 7 * 24 * 60 * 60, // 7 days
+    updateAge: 24 * 60 * 60, // 1 day
   },
   callbacks: {
     async signIn({ user, account, profile }) {
@@ -114,44 +115,37 @@ export const authOptions: NextAuthOptions = {
       }
     },
     
-    async jwt({ token, account, profile, user }) {
-      if (account && profile) {
-        const twitterProfile = profile as TwitterProfile;
-        token.twitterId = twitterProfile.id;
-        token.username = twitterProfile.username || 'unknown';
+    async session({ session, user }) {
+      try {
+        console.log('Session callback - user from adapter:', user);
+        console.log('Session callback - session:', session);
         
-        // Fetch user data from database
-        const { db } = await connectToDatabase();
-        const dbUser = await db.collection('users').findOne({ twitterId: twitterProfile.id });
-        
-        if (dbUser) {
-          token.credits = dbUser.credits;
-          token.userId = dbUser._id.toString();
-        }
-      }
-      return token;
-    },
-    
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.userId as string;
-        session.user.twitterId = token.twitterId as string;
-        session.user.username = token.username as string;
-        session.user.credits = token.credits as number;
-        
-        // Update session with fresh data
-        try {
-          const { db } = await connectToDatabase();
-          const user = await db.collection('users').findOne({ twitterId: token.twitterId });
+        if (user) {
+          // When using database strategy, user comes from the adapter
+          session.user.id = user.id;
           
-          if (user) {
-            session.user.credits = user.credits;
+          // Fetch additional user data from our custom users collection
+          const { db } = await connectToDatabase();
+          const dbUser = await db.collection('users').findOne({ 
+            email: session.user.email 
+          });
+          
+          console.log('Session callback - dbUser found:', dbUser);
+          
+          if (dbUser) {
+            session.user.id = dbUser._id.toString();
+            session.user.twitterId = dbUser.twitterId;
+            session.user.username = dbUser.username;
+            session.user.credits = dbUser.credits;
           }
-        } catch (error) {
-          console.error('Session update error:', error);
         }
+        
+        console.log('Session callback - final session:', session);
+        return session;
+      } catch (error) {
+        console.error('Session callback error:', error);
+        return session;
       }
-      return session;
     },
   },
   events: {

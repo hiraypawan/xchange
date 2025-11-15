@@ -24,6 +24,14 @@ export default function ExtensionAuthPage() {
       setAuthStep('connecting');
       
       // Generate auth token for extension
+      // First test if session is working
+      const sessionTest = await fetch('/api/test-session', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      const sessionData = await sessionTest.json();
+      console.log('Session test result:', sessionData);
+
       const response = await fetch('/api/auth/extension-token', {
         method: 'POST',
         headers: {

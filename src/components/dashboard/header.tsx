@@ -9,12 +9,30 @@ export default function DashboardHeader() {
   const { data: session } = useSession();
   const [extensionStatus, setExtensionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
   const [showExtensionDropdown, setShowExtensionDropdown] = useState(false);
+  const [extensionVersion, setExtensionVersion] = useState<string>('');
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
 
   useEffect(() => {
     checkExtensionStatus();
-    const interval = setInterval(checkExtensionStatus, 10000); // Check every 10 seconds
+    fetchLatestVersionInfo();
+    const interval = setInterval(() => {
+      checkExtensionStatus();
+      fetchLatestVersionInfo();
+    }, 10000); // Check every 10 seconds
     return () => clearInterval(interval);
   }, []);
+
+  const fetchLatestVersionInfo = async () => {
+    try {
+      const response = await fetch('/api/extension?action=version');
+      if (response.ok) {
+        const data = await response.json();
+        setUpdateInfo(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch version info:', error);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -60,6 +78,15 @@ export default function DashboardHeader() {
     const handleExtensionMessage = (event: MessageEvent) => {
       if (event.data?.type === 'XCHANGEE_EXTENSION_HEARTBEAT' && event.data?.source === 'extension') {
         setExtensionStatus('connected');
+        if (event.data.version) {
+          setExtensionVersion(event.data.version);
+        }
+      }
+      if (event.data?.type === 'XCHANGEE_EXTENSION_RESPONSE' && event.data?.source === 'extension') {
+        setExtensionStatus('connected');
+        if (event.data.version) {
+          setExtensionVersion(event.data.version);
+        }
       }
     };
 
@@ -181,9 +208,43 @@ export default function DashboardHeader() {
                     )}
                     
                     {extensionStatus === 'connected' && (
-                      <p className="text-sm text-green-600">
-                        Extension is working properly. You can now earn credits automatically while browsing Twitter!
-                      </p>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-green-600 font-medium">
+                            Extension Active
+                          </p>
+                          {extensionVersion && (
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                              v{extensionVersion}
+                            </span>
+                          )}
+                        </div>
+                        
+                        <p className="text-sm text-gray-600">
+                          ✨ Auto-updates every 10 seconds • Earning credits while browsing Twitter
+                        </p>
+                        
+                        {updateInfo && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                            <h4 className="text-sm font-medium text-blue-900 mb-1">
+                              🚀 Latest Update (v{updateInfo.version})
+                            </h4>
+                            <p className="text-xs text-blue-700 mb-2">
+                              {updateInfo.releaseNotes}
+                            </p>
+                            {updateInfo.features && (
+                              <ul className="text-xs text-blue-600 space-y-1">
+                                {updateInfo.features.slice(0, 3).map((feature: string, index: number) => (
+                                  <li key={index} className="flex items-start">
+                                    <span className="mr-1">•</span>
+                                    <span>{feature}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

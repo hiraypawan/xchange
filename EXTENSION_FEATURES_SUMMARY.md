@@ -18,15 +18,18 @@
 
 ### 3. Auto-Update System
 **Components**:
-- **API Endpoint** (`/src/app/api/extension/route.ts`): Serves extension files and update manifests
-- **Background Script** (`chrome-extension/background.js`): Checks for updates every 10 minutes
-- **Manifest** (`chrome-extension/manifest.json`): Updated to v1.1.0 with update_url
+- **API Endpoint** (`/src/app/api/extension/route.ts`): Serves extension files and update manifests with detailed release notes
+- **Background Script** (`chrome-extension/background.js`): Checks for updates every 10 seconds
+- **Manifest** (`chrome-extension/manifest.json`): Updated to v1.2.0 with update_url
+- **Version History**: Comprehensive changelog with features and release notes
 
 **How it works**:
-1. Extension checks for updates every 10 minutes via API
-2. If newer version available, shows notification
-3. Auto-updates after 10 seconds
+1. Extension checks for updates every 10 seconds via API
+2. If newer version available, shows detailed notification with release notes
+3. Auto-updates after 10 seconds with progress notifications
 4. Website always serves latest extension version for download
+5. Success notification shows new features after update
+6. Dashboard displays current version and latest update info
 
 ### 4. Extension-Website Communication
 **Protocol**:

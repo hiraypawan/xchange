@@ -17,7 +17,7 @@ chrome.runtime.onInstalled.addListener(() => {
 // Check for updates periodically
 setInterval(() => {
   checkForUpdates();
-}, 10 * 60 * 1000); // Every 10 minutes
+}, 10 * 1000); // Every 10 seconds
 
 // Initialize extension data
 async function initializeExtension() {
@@ -91,6 +91,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       stopAutoEngage();
       sendResponse({ success: true });
       break;
+      
+    case 'GET_UPDATE_INFO':
+      getUpdateInfo().then(sendResponse);
+      return true; // Async response
+      
+    case 'CLEAR_UPDATE_INFO':
+      clearUpdateInfo().then(sendResponse);
+      return true; // Async response
       
     default:
       sendResponse({ error: 'Unknown message type' });
@@ -299,24 +307,48 @@ async function checkForUpdates() {
       const latestVersion = data.version;
       
       if (isNewerVersion(latestVersion, currentVersion)) {
-        // Show update notification
+        // Show update notification with release notes
+        const releaseNotes = data.releaseNotes || 'Latest features and bug fixes';
         chrome.notifications.create({
           type: 'basic',
           iconUrl: 'icons/icon48.png',
-          title: 'Xchangee Extension Update Available',
-          message: `Version ${latestVersion} is available. The extension will update automatically.`,
+          title: `Xchangee Update Available v${latestVersion}`,
+          message: `🚀 ${releaseNotes}\n\nUpdating automatically in 10 seconds...`,
         });
         
+        // Store update info for user to see
+        await chrome.storage.local.set({
+          pendingUpdate: {
+            version: latestVersion,
+            releaseNotes: data.releaseNotes,
+            features: data.features,
+            updateTime: Date.now()
+          }
+        });
+
         // Auto-update after 10 seconds
         setTimeout(async () => {
           try {
+            // Show final update notification
+            chrome.notifications.create({
+              type: 'basic',
+              iconUrl: 'icons/icon48.png',
+              title: 'Xchangee Updating Now...',
+              message: `Installing v${latestVersion}. Extension will restart automatically.`,
+            });
+
             chrome.runtime.requestUpdateCheck((status) => {
               if (status === 'update_available') {
                 chrome.runtime.reload();
+              } else {
+                // Fallback: force reload if update check fails
+                setTimeout(() => chrome.runtime.reload(), 2000);
               }
             });
           } catch (error) {
             console.error('Auto-update failed:', error);
+            // Fallback: still try to reload
+            chrome.runtime.reload();
           }
         }, 10000);
       }
@@ -341,6 +373,49 @@ function isNewerVersion(latest, current) {
   
   return false;
 }
+
+// Get update information
+async function getUpdateInfo() {
+  try {
+    const data = await chrome.storage.local.get(['pendingUpdate', 'lastUpdateCheck']);
+    return { 
+      success: true, 
+      updateInfo: data.pendingUpdate,
+      lastCheck: data.lastUpdateCheck
+    };
+  } catch (error) {
+    console.error('Failed to get update info:', error);
+    return { error: error.message };
+  }
+}
+
+// Clear update information
+async function clearUpdateInfo() {
+  try {
+    await chrome.storage.local.remove(['pendingUpdate']);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to clear update info:', error);
+    return { error: error.message };
+  }
+}
+
+// Post-update success notification
+chrome.runtime.onStartup.addListener(async () => {
+  const data = await chrome.storage.local.get(['pendingUpdate']);
+  if (data.pendingUpdate) {
+    // Show success notification
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon48.png',
+      title: `🎉 Xchangee Updated to v${data.pendingUpdate.version}!`,
+      message: `${data.pendingUpdate.releaseNotes}\n\nNew features are now active!`,
+    });
+    
+    // Clear the pending update info after showing success
+    await chrome.storage.local.remove(['pendingUpdate']);
+  }
+});
 
 // Keep service worker alive
 setInterval(() => {

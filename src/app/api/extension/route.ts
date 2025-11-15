@@ -62,16 +62,55 @@ async function handleDownload() {
   }
 }
 
+// Version history with detailed release notes
+const VERSION_HISTORY = {
+  '1.2.0': {
+    releaseNotes: 'Real-time auto-updates every 10 seconds • Enhanced connection status • Improved notification system',
+    features: [
+      'Auto-update checks every 10 seconds for instant updates',
+      'Enhanced real-time connection status with website',
+      'Improved notification system with detailed update info',
+      'Better error handling and recovery mechanisms'
+    ],
+    releaseDate: new Date().toISOString()
+  },
+  '1.1.0': {
+    releaseNotes: 'Auto-update system • Website communication • Dashboard status indicator',
+    features: [
+      'Added automatic update system',
+      'Real-time website communication',
+      'Dashboard connection status indicator',
+      'Enhanced security and performance'
+    ],
+    releaseDate: '2024-01-15T00:00:00.000Z'
+  },
+  '1.0.0': {
+    releaseNotes: 'Initial release with core engagement features',
+    features: [
+      'Twitter auto-engagement (like, retweet, reply, follow)',
+      'Credit earning system',
+      'Smart rate limiting',
+      'User settings and preferences'
+    ],
+    releaseDate: '2024-01-01T00:00:00.000Z'
+  }
+};
+
 async function handleVersionCheck() {
   try {
     const manifestPath = path.join(process.cwd(), 'chrome-extension', 'manifest.json');
     const manifestContent = await fs.readFile(manifestPath, 'utf-8');
     const manifest = JSON.parse(manifestContent);
     
+    const versionInfo = VERSION_HISTORY[manifest.version] || VERSION_HISTORY['1.2.0'];
+    
     return NextResponse.json({
       version: manifest.version,
       updateUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/extension?action=download`,
-      releaseNotes: 'Latest features and bug fixes'
+      releaseNotes: versionInfo.releaseNotes,
+      features: versionInfo.features,
+      releaseDate: versionInfo.releaseDate,
+      changelog: VERSION_HISTORY
     });
     
   } catch (error) {

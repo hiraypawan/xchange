@@ -70,6 +70,20 @@ type VersionInfo = {
 };
 
 const VERSION_HISTORY: Record<string, VersionInfo> = {
+  '1.3.6': {
+    releaseNotes: 'NOTIFICATION ERROR FIXES: Resolved Chrome notification icon issues • Clean notification system • No more errors',
+    features: [
+      'Fixed "Unable to download all specified images" notification errors',
+      'Removed problematic iconUrl references from all notifications',
+      'Cleaned up notification system to prevent Chrome extension errors',
+      'Enhanced notification reliability without icon dependencies',
+      'Fixed all notification calls to use only required properties',
+      'Improved notification system stability',
+      'Eliminated notification-related console errors',
+      'Enhanced user experience with error-free notifications'
+    ],
+    releaseDate: new Date().toISOString()
+  },
   '1.3.5': {
     releaseNotes: 'COMMUNICATION FIXES: Enhanced heartbeat system • Fixed extension status detection • Improved logging',
     features: [
@@ -82,7 +96,7 @@ const VERSION_HISTORY: Record<string, VersionInfo> = {
       'Added better fallback mechanisms for failed communications',
       'Improved extension presence announcement system'
     ],
-    releaseDate: new Date().toISOString()
+    releaseDate: '2025-11-15T17:45:00.000Z'
   },
   '1.3.4': {
     releaseNotes: 'DOWNLOAD & DETECTION FIXES: Always serve latest extension • Enhanced status detection • Real-time auth checking',
@@ -193,7 +207,7 @@ async function handleVersionCheck() {
     const manifest = JSON.parse(manifestContent);
     
     const version = manifest.version as string;
-    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.5'];
+    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.6'];
     
     return NextResponse.json({
       version: manifest.version,

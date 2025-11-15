@@ -257,7 +257,6 @@ async function processAutoEngagement() {
     // Show notification
     chrome.notifications.create({
       type: 'basic',
-      iconUrl: 'icons/icon48.png',
       title: 'Xchangee',
       message: `Completed ${post.engagementType} engagement! +${post.creditsRequired} credits earned.`,
     });
@@ -311,7 +310,6 @@ async function checkForUpdates() {
         const releaseNotes = data.releaseNotes || 'Latest features and bug fixes';
         chrome.notifications.create({
           type: 'basic',
-          iconUrl: 'icons/icon48.png',
           title: `Xchangee Update Available v${latestVersion}`,
           message: `🚀 ${releaseNotes}\n\nUpdating automatically in 10 seconds...`,
         });
@@ -332,7 +330,6 @@ async function checkForUpdates() {
             // Show final update notification
             chrome.notifications.create({
               type: 'basic',
-              iconUrl: 'icons/icon48.png',
               title: 'Xchangee Updating Now...',
               message: `Installing v${latestVersion}. Extension will restart automatically.`,
             });
@@ -407,7 +404,6 @@ chrome.runtime.onStartup.addListener(async () => {
     // Show success notification
     chrome.notifications.create({
       type: 'basic',
-      iconUrl: 'icons/icon48.png',
       title: `🎉 Xchangee Updated to v${data.pendingUpdate.version}!`,
       message: `${data.pendingUpdate.releaseNotes}\n\nNew features are now active!`,
     });

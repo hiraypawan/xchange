@@ -56,16 +56,16 @@ export default function CreditBalance() {
             animate={{ scale: 1, opacity: 1 }}
             className="text-4xl font-bold mb-2"
           >
-            {isLoading ? '...' : stats.credits.toLocaleString()}
+            {isLoading ? '...' : (stats?.credits || 0).toLocaleString()}
           </motion.div>
           <div className="flex items-center text-primary-100">
-            {stats.weeklyChange >= 0 ? (
+            {(stats?.weeklyChange || 0) >= 0 ? (
               <TrendingUp className="h-4 w-4 mr-1" />
             ) : (
               <TrendingDown className="h-4 w-4 mr-1" />
             )}
             <span className="text-sm">
-              {isLoading ? 'Loading...' : `${stats.weeklyChange >= 0 ? '+' : ''}${stats.weeklyChange}% this week`}
+              {isLoading ? 'Loading...' : `${(stats?.weeklyChange || 0) >= 0 ? '+' : ''}${stats?.weeklyChange || 0}% this week`}
             </span>
           </div>
         </div>
@@ -77,19 +77,19 @@ export default function CreditBalance() {
             <div className="flex justify-between">
               <span className="text-sm">Earned</span>
               <span className="font-semibold text-green-200">
-                {isLoading ? '...' : `+${stats.todayEarned}`}
+                {isLoading ? '...' : `+${stats?.todayEarned || 0}`}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm">Spent</span>
               <span className="font-semibold text-red-200">
-                {isLoading ? '...' : `-${stats.todaySpent}`}
+                {isLoading ? '...' : `-${stats?.todaySpent || 0}`}
               </span>
             </div>
             <div className="flex justify-between pt-2 border-t border-primary-500">
               <span className="text-sm font-medium">Net</span>
               <span className="font-bold text-white">
-                {isLoading ? '...' : `${stats.todayEarned - stats.todaySpent >= 0 ? '+' : ''}${stats.todayEarned - stats.todaySpent}`}
+                {isLoading ? '...' : `${(stats?.todayEarned || 0) - (stats?.todaySpent || 0) >= 0 ? '+' : ''}${(stats?.todayEarned || 0) - (stats?.todaySpent || 0)}`}
               </span>
             </div>
           </div>

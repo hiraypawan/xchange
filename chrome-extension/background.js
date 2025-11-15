@@ -22,7 +22,7 @@ setInterval(() => {
 // Initialize extension data
 async function initializeExtension() {
   try {
-    const data = await chrome.storage.local.get(['authToken', 'userId', 'settings']);
+    const data = await chrome.storage.local.get(['authToken', 'userId', 'userData', 'settings']);
     authToken = data.authToken;
     userId = data.userId;
     
@@ -45,9 +45,48 @@ async function initializeExtension() {
   }
 }
 
+// Store authentication data from web app
+async function storeAuthData(token, userIdValue, userData) {
+  try {
+    console.log('Storing auth data:', { token: token ? 'exists' : 'null', userIdValue, userData });
+    
+    // Store authentication data
+    await chrome.storage.local.set({
+      authToken: token,
+      userId: userIdValue,
+      userData: userData,
+      connectedAt: new Date().toISOString(),
+    });
+    
+    // Update global variables
+    authToken = token;
+    userId = userIdValue;
+    
+    console.log('Auth data stored successfully');
+    
+    // Show success notification
+    if (userData) {
+      chrome.runtime.sendMessage({
+        type: 'SHOW_AUTH_SUCCESS_NOTIFICATION',
+        userData: userData
+      });
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to store auth data:', error);
+    throw error;
+  }
+}
+
 // Handle messages from content script and popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   switch (request.type) {
+    case 'STORE_AUTH_DATA':
+      storeAuthData(request.authToken, request.userId, request.userData)
+        .then(() => sendResponse({ success: true }))
+        .catch(error => sendResponse({ error: error.message }));
+      return true; // Async response
     case 'GET_AUTH_STATUS':
       sendResponse({ 
         isAuthenticated: !!authToken, 

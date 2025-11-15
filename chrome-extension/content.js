@@ -48,6 +48,29 @@ function handleWebsiteMessage(event) {
     }, '*');
   }
   
+  // Handle auth success from extension auth page
+  if (event.data?.type === 'EXTENSION_AUTH_SUCCESS') {
+    console.log('Extension auth success received:', event.data);
+    
+    // Store auth data and notify background script
+    chrome.runtime.sendMessage({
+      type: 'STORE_AUTH_DATA',
+      authToken: event.data.authToken,
+      userId: event.data.userId,
+      userData: event.data.userData
+    }, (response) => {
+      if (response.success) {
+        console.log('Auth data stored successfully');
+        
+        // Show success notification
+        window.postMessage({
+          type: 'SHOW_AUTH_SUCCESS',
+          userData: event.data.userData
+        }, '*');
+      }
+    });
+  }
+  
   // Handle authentication from extension auth page
   if (event.data?.type === 'EXTENSION_AUTH_SUCCESS') {
     handleAuthenticationFromWebsite(event.data);

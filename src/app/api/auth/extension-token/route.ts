@@ -8,13 +8,28 @@ import { ObjectId } from 'mongodb';
 export async function POST(request: NextRequest) {
   try {
     console.log('Extension token request started');
+    console.log('Headers:', Object.fromEntries(request.headers.entries()));
+    
+    // Get session with proper options for API routes
     const session = await getServerSession(authOptions);
 
     console.log('Session:', session ? 'exists' : 'null', session?.user?.id);
+    
+    if (session) {
+      console.log('Session user:', JSON.stringify(session.user, null, 2));
+    }
 
     if (!session?.user?.id) {
       console.log('No session or user ID found');
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      
+      // Add CORS headers for extension communication
+      const response = NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      response.headers.set('Access-Control-Allow-Origin', '*');
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      
+      return response;
     }
 
     // Get JWT secret early to avoid reference errors
@@ -71,7 +86,7 @@ export async function POST(request: NextRequest) {
         { algorithm: 'HS256' }
       );
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         token: fallbackToken,
         userId: session.user.id,
@@ -84,6 +99,14 @@ export async function POST(request: NextRequest) {
           credits: 0,
         },
       });
+      
+      // Add CORS headers
+      response.headers.set('Access-Control-Allow-Origin', '*');
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      
+      return response;
     }
 
     console.log('User found:', user.username || user.email);
@@ -122,7 +145,7 @@ export async function POST(request: NextRequest) {
     
     console.log('Extension status updated successfully');
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       token: extensionToken,
       userId: session.user.id,
@@ -135,17 +158,46 @@ export async function POST(request: NextRequest) {
         credits: user.credits || 0,
       },
     });
+    
+    // Add CORS headers
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    
+    return response;
 
   } catch (error) {
     console.error('Extension token generation failed:', error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { 
         error: 'Failed to generate extension token',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );
+    
+    // Add CORS headers
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    
+    return response;
   }
+}
+
+// Handle OPTIONS request for CORS preflight
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Credentials': 'true',
+    },
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -178,21 +230,37 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       isExtensionConnected: user?.extensionConnected || false,
       connectedAt: user?.extensionConnectedAt,
       credits: user?.credits || 0,
     });
+    
+    // Add CORS headers
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    
+    return response;
 
   } catch (error) {
     console.error('Extension status check failed:', error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { 
         error: 'Failed to check extension status',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );
+    
+    // Add CORS headers
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    
+    return response;
   }
 }

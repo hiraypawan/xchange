@@ -320,10 +320,8 @@ async function processAutoEngagement() {
       engagementType: post.engagementType,
     });
     
-    // Show notification
-    chrome.notifications.create({
-      type: 'basic',
-      title: 'Xchangee',
+    // Skip notification to prevent runtime errors
+    console.log('Notification skipped - preventing runtime errors');
       message: `Completed ${post.engagementType} engagement! +${post.creditsRequired} credits earned.`,
     });
     
@@ -403,24 +401,11 @@ async function checkForUpdates() {
 
 // Perform automatic update by downloading and replacing extension files
 async function performAutoUpdate(version, updateData) {
-  try {
-    console.log(`Starting auto-update to version ${version}`);
-    console.log('EMERGENCY: Disabling all notifications to fix runtime errors');
-
-    // Force extension reload immediately without download - this bypasses the notification issue
-    console.log('Emergency fix: Forcing immediate extension reload to pick up latest version from server');
-    
-    // Clear any stored notification errors
-    await chrome.storage.local.clear();
-    
-    // Force reload without any notifications or delays
-    chrome.runtime.reload();
-
-  } catch (error) {
-    console.error('Auto-update failed, forcing reload anyway:', error);
-    // Force reload even on error to get out of broken state
-    chrome.runtime.reload();
-  }
+  console.log(`EMERGENCY FORCE RELOAD: Starting auto-update to version ${version}`);
+  console.log('BYPASSING ALL CHROME APIs - Direct reload to escape notification errors');
+  
+  // Immediate reload without any async operations that could fail
+  chrome.runtime.reload();
 }
 
 // Compare version strings (simple semantic versioning)

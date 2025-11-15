@@ -70,6 +70,20 @@ type VersionInfo = {
 };
 
 const VERSION_HISTORY: Record<string, VersionInfo> = {
+  '1.3.0': {
+    releaseNotes: 'MAJOR FIX: Complete extension authentication overhaul • CORS fixes • Enhanced communication',
+    features: [
+      'Fixed all CORS headers for proper extension-webapp communication',
+      'Added proper OPTIONS handler for preflight requests',
+      'Enhanced extension auth flow with better message handling',
+      'Added storeAuthData function for proper token storage',
+      'Improved session handling with detailed logging',
+      'Fixed favicon and manifest issues (404 errors resolved)',
+      'Enhanced error handling with proper TypeScript types',
+      'Added extension update mechanism and version tracking'
+    ],
+    releaseDate: new Date().toISOString()
+  },
   '1.2.0': {
     releaseNotes: 'HOTFIX: Extension connection issues resolved • TypeScript fixes • Enhanced MongoDB compatibility',
     features: [
@@ -110,7 +124,7 @@ async function handleVersionCheck() {
     const manifest = JSON.parse(manifestContent);
     
     const version = manifest.version as string;
-    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.2.0'];
+    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.0'];
     
     return NextResponse.json({
       version: manifest.version,

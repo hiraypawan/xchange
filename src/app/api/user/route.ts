@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
     const user = await db.collection('users').findOne(
-      { twitterId: session.user.twitterId }
+      { _id: session.user.id }
     ) as User;
 
     if (!user) {
@@ -50,7 +50,7 @@ export async function PATCH(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.twitterId) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -80,7 +80,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const result = await db.collection('users').updateOne(
-      { twitterId: session.user.twitterId },
+      { _id: session.user.id },
       { $set: updateData }
     );
 

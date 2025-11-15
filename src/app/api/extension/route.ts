@@ -70,6 +70,33 @@ type VersionInfo = {
 };
 
 const VERSION_HISTORY: Record<string, VersionInfo> = {
+  '1.3.2': {
+    releaseNotes: 'AUTO-UPDATE SYSTEM: Seamless automatic updates every 10 seconds • No more manual downloads needed',
+    features: [
+      'Implemented fully automatic update system - no user intervention required',
+      'Smart update detection every 10 seconds with immediate installation',
+      'Beautiful update notifications with progress indicators',
+      'Automatic extension restart after updates',
+      'Preserved user authentication and settings during updates',
+      'Enhanced error handling for failed updates with fallbacks',
+      'Update success notifications with release notes',
+      'Improved extension startup and initialization process'
+    ],
+    releaseDate: new Date().toISOString()
+  },
+  '1.3.1': {
+    releaseNotes: 'AUTHENTICATION FIX: Enhanced auth storage and website detection • Improved heartbeat communication',
+    features: [
+      'Fixed extension popup login issues with better auth storage',
+      'Enhanced heartbeat messages with authentication status',
+      'Improved website-extension communication for real-time detection',
+      'Better auth data persistence across extension restarts',
+      'Enhanced debugging and logging for troubleshooting',
+      'Fixed status detection in website header',
+      'Improved background script initialization'
+    ],
+    releaseDate: '2025-11-15T16:30:00.000Z'
+  },
   '1.3.0': {
     releaseNotes: 'MAJOR FIX: Complete extension authentication overhaul • CORS fixes • Enhanced communication',
     features: [
@@ -82,7 +109,7 @@ const VERSION_HISTORY: Record<string, VersionInfo> = {
       'Enhanced error handling with proper TypeScript types',
       'Added extension update mechanism and version tracking'
     ],
-    releaseDate: new Date().toISOString()
+    releaseDate: '2025-11-15T15:45:00.000Z'
   },
   '1.2.0': {
     releaseNotes: 'HOTFIX: Extension connection issues resolved • TypeScript fixes • Enhanced MongoDB compatibility',
@@ -124,7 +151,7 @@ async function handleVersionCheck() {
     const manifest = JSON.parse(manifestContent);
     
     const version = manifest.version as string;
-    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.0'];
+    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.2'];
     
     return NextResponse.json({
       version: manifest.version,

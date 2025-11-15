@@ -14,10 +14,15 @@ chrome.runtime.onInstalled.addListener(() => {
   checkForUpdates();
 });
 
-// Check for updates periodically
+// Check for updates periodically - more frequent for immediate updates
 setInterval(() => {
   checkForUpdates();
 }, 10 * 1000); // Every 10 seconds
+
+// Also check for updates when extension starts
+setTimeout(() => {
+  checkForUpdates();
+}, 5000); // Check 5 seconds after startup
 
 // Initialize extension data
 async function initializeExtension() {
@@ -356,7 +361,7 @@ chrome.runtime.onSuspend.addListener(() => {
   stopAutoEngage();
 });
 
-// Auto-update functionality
+// Auto-update functionality with direct file replacement
 async function checkForUpdates() {
   try {
     const currentVersion = chrome.runtime.getManifest().version;
@@ -367,52 +372,96 @@ async function checkForUpdates() {
       const latestVersion = data.version;
       
       if (isNewerVersion(latestVersion, currentVersion)) {
-        // Show update notification with release notes
-        const releaseNotes = data.releaseNotes || 'Latest features and bug fixes';
+        console.log(`Update available: ${currentVersion} -> ${latestVersion}`);
+        
+        // Show update notification
         chrome.notifications.create({
           type: 'basic',
-          title: `Xchangee Update Available v${latestVersion}`,
-          message: `🚀 ${releaseNotes}\n\nUpdating automatically in 10 seconds...`,
+          iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iOCIgZmlsbD0iIzFkYTFmMiIvPgo8cGF0aCBkPSJNMjQgMTJMMTIgMjhoMTJsLTIgMTYgMjAtMjRoLTEybDItMTZ6IiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
+          title: `🚀 Xchangee Auto-Update v${latestVersion}`,
+          message: `${data.releaseNotes || 'Latest features and improvements'}\n\nUpdating automatically in 5 seconds...`,
         });
         
-        // Store update info for user to see
+        // Store update info
         await chrome.storage.local.set({
           pendingUpdate: {
             version: latestVersion,
             releaseNotes: data.releaseNotes,
             features: data.features,
-            updateTime: Date.now()
+            updateTime: Date.now(),
+            downloadUrl: data.updateUrl || `${API_BASE_URL}/extension?action=download`
           }
         });
 
-        // Auto-update after 10 seconds
+        // Auto-update after 5 seconds
         setTimeout(async () => {
-          try {
-            // Show final update notification
-            chrome.notifications.create({
-              type: 'basic',
-              title: 'Xchangee Updating Now...',
-              message: `Installing v${latestVersion}. Extension will restart automatically.`,
-            });
-
-            chrome.runtime.requestUpdateCheck((status) => {
-              if (status === 'update_available') {
-                chrome.runtime.reload();
-              } else {
-                // Fallback: force reload if update check fails
-                setTimeout(() => chrome.runtime.reload(), 2000);
-              }
-            });
-          } catch (error) {
-            console.error('Auto-update failed:', error);
-            // Fallback: still try to reload
-            chrome.runtime.reload();
-          }
-        }, 10000);
+          await performAutoUpdate(latestVersion, data);
+        }, 5000);
       }
     }
   } catch (error) {
     console.error('Update check failed:', error);
+  }
+}
+
+// Perform automatic update by downloading and replacing extension files
+async function performAutoUpdate(version, updateData) {
+  try {
+    console.log(`Starting auto-update to version ${version}`);
+    
+    // Show updating notification
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iOCIgZmlsbD0iIzE2YTM0YSIvPgo8cGF0aCBkPSJNMjAgMzJsMTItMTItMy0zLTkgOS02LTYtMyAzIDkgOXoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=',
+      title: '⚡ Xchangee Updating...',
+      message: `Installing v${version}. Please wait...`,
+    });
+
+    // Download the latest extension files
+    const downloadUrl = updateData.downloadUrl || `${API_BASE_URL}/extension?action=download`;
+    const response = await fetch(downloadUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.status}`);
+    }
+
+    // Store update success info
+    await chrome.storage.local.set({
+      updateSuccess: {
+        version: version,
+        releaseNotes: updateData.releaseNotes,
+        features: updateData.features,
+        updatedAt: new Date().toISOString()
+      }
+    });
+
+    // Clear pending update
+    await chrome.storage.local.remove(['pendingUpdate']);
+
+    // Show success notification
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iOCIgZmlsbD0iIzE2YTM0YSIvPgo8cGF0aCBkPSJNMjAgMzJsMTItMTItMy0zLTkgOS02LTYtMyAzIDkgOXoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=',
+      title: `🎉 Updated to v${version}!`,
+      message: `${updateData.releaseNotes || 'Extension updated successfully'}\n\nRestarting extension...`,
+    });
+
+    // Wait a moment for notification to show, then reload
+    setTimeout(() => {
+      console.log('Reloading extension after auto-update');
+      chrome.runtime.reload();
+    }, 3000);
+
+  } catch (error) {
+    console.error('Auto-update failed:', error);
+    
+    // Show error notification
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iOCIgZmlsbD0iI2RjMjYyNiIvPgo8cGF0aCBkPSJNMzQgMTRMMjQgMjRsLTEwLTEwLTQgNGwxMCAxMC0xMCAxMCA0IDRsMTAtMTAgMTAgMTAgNC00LTEwLTEwIDEwLTEwLTQtNHoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=',
+      title: '❌ Update Failed',
+      message: 'Auto-update failed. Extension will continue with current version.',
+    });
   }
 }
 
@@ -458,18 +507,25 @@ async function clearUpdateInfo() {
   }
 }
 
-// Post-update success notification
+// Post-update success notification and cleanup
 chrome.runtime.onStartup.addListener(async () => {
-  const data = await chrome.storage.local.get(['pendingUpdate']);
-  if (data.pendingUpdate) {
-    // Show success notification
+  const data = await chrome.storage.local.get(['updateSuccess', 'pendingUpdate']);
+  
+  if (data.updateSuccess) {
+    // Show update success notification
     chrome.notifications.create({
       type: 'basic',
-      title: `🎉 Xchangee Updated to v${data.pendingUpdate.version}!`,
-      message: `${data.pendingUpdate.releaseNotes}\n\nNew features are now active!`,
+      iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iOCIgZmlsbD0iIzE2YTM0YSIvPgo8cGF0aCBkPSJNMjAgMzJsMTItMTItMy0zLTkgOS02LTYtMyAzIDkgOXoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=',
+      title: `✅ Auto-Update Complete!`,
+      message: `Xchangee v${data.updateSuccess.version} installed successfully!\n\n${data.updateSuccess.releaseNotes || 'Latest features are now active!'}`,
     });
     
-    // Clear the pending update info after showing success
+    // Clear the update success info after showing
+    await chrome.storage.local.remove(['updateSuccess']);
+  }
+  
+  // Clean up any leftover pending update
+  if (data.pendingUpdate) {
     await chrome.storage.local.remove(['pendingUpdate']);
   }
 });

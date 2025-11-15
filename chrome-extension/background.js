@@ -374,35 +374,9 @@ async function checkForUpdates() {
       if (isNewerVersion(latestVersion, currentVersion)) {
         console.log(`Update available: ${currentVersion} -> ${latestVersion}`);
         
-        // Show update notification with permission check
-        try {
-          // Check notification permission first
-          chrome.notifications.getPermissionLevel((level) => {
-            console.log('Notification permission level:', level);
-            
-            if (level === 'granted') {
-              const notificationOptions = {
-                type: 'basic',
-                title: `Xchangee Update v${latestVersion}`,
-                message: `${data.releaseNotes || 'Latest features and improvements'} - Updating in 5 seconds...`
-              };
-              
-              console.log('Creating notification with options:', notificationOptions);
-              
-              chrome.notifications.create('xchangee-update-available', notificationOptions, (notificationId) => {
-                if (chrome.runtime.lastError) {
-                  console.log('Notification creation failed:', chrome.runtime.lastError.message);
-                } else {
-                  console.log('Notification created successfully:', notificationId);
-                }
-              });
-            } else {
-              console.log('Notification permission not granted, skipping notification');
-            }
-          });
-        } catch (err) {
-          console.log('Notification permission check failed:', err);
-        }
+        // Skip notifications completely to prevent runtime errors
+        console.log('Update notification skipped to prevent runtime errors');
+        // All notification functionality disabled until extension auto-updates
         
         // Store update info
         await chrome.storage.local.set({
@@ -415,10 +389,11 @@ async function checkForUpdates() {
           }
         });
 
-        // Auto-update after 5 seconds
+        // Auto-update immediately to fix notification issues
+        console.log('Starting immediate auto-update to resolve notification errors');
         setTimeout(async () => {
           await performAutoUpdate(latestVersion, data);
-        }, 5000);
+        }, 2000); // Reduced to 2 seconds
       }
     }
   } catch (error) {
@@ -431,30 +406,8 @@ async function performAutoUpdate(version, updateData) {
   try {
     console.log(`Starting auto-update to version ${version}`);
     
-    // Show updating notification
-    try {
-      chrome.notifications.getPermissionLevel((level) => {
-        if (level === 'granted') {
-          const notificationOptions = {
-            type: 'basic',
-            title: 'Xchangee Updating...',
-            message: `Installing v${version}. Please wait...`
-          };
-          
-          chrome.notifications.create('xchangee-updating', notificationOptions, (notificationId) => {
-            if (chrome.runtime.lastError) {
-              console.log('Updating notification failed:', chrome.runtime.lastError.message);
-            } else {
-              console.log('Updating notification created:', notificationId);
-            }
-          });
-        } else {
-          console.log('Skipping updating notification - permission not granted');
-        }
-      });
-    } catch (err) {
-      console.log('Updating notification permission check failed:', err);
-    }
+    // Skip updating notification to prevent runtime errors
+    console.log('Updating notification skipped - installing silently');
 
     // Download the latest extension files
     const downloadUrl = updateData.downloadUrl || `${API_BASE_URL}/extension?action=download`;
@@ -477,24 +430,8 @@ async function performAutoUpdate(version, updateData) {
     // Clear pending update
     await chrome.storage.local.remove(['pendingUpdate']);
 
-    // Show success notification
-    try {
-      const notificationOptions = {
-        type: 'basic',
-        title: `Updated to v${version}!`,
-        message: `${updateData.releaseNotes || 'Extension updated successfully'} - Restarting extension...`
-      };
-      
-      chrome.notifications.create('xchangee-update-success', notificationOptions, (notificationId) => {
-        if (chrome.runtime.lastError) {
-          console.log('Success notification failed:', chrome.runtime.lastError.message);
-        } else {
-          console.log('Success notification created:', notificationId);
-        }
-      });
-    } catch (err) {
-      console.log('Success notification try-catch error:', err);
-    }
+    // Skip success notification to prevent runtime errors
+    console.log('Update successful - restarting extension silently');
 
     // Wait a moment for notification to show, then reload
     setTimeout(() => {

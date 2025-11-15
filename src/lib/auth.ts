@@ -15,7 +15,7 @@ interface TwitterProfile extends Profile {
 }
 
 export const authOptions: NextAuthOptions = {
-  // adapter: MongoDBAdapter(clientPromise), // Temporarily disable adapter for debugging
+  adapter: MongoDBAdapter(clientPromise),
   providers: [
     TwitterProvider({
       clientId: process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID!,
@@ -39,17 +39,95 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async signIn({ user, account, profile }) {
-      console.log('SignIn callback:', { user, account, profile });
-      return true; // Temporarily allow all sign-ins for debugging
+      try {
+        if (account?.provider === 'twitter' && profile) {
+          const { db } = await connectToDatabase();
+          const twitterProfile = profile as TwitterProfile;
+          
+          // Check if user exists
+          const existingUser = await db.collection('users').findOne({
+            $or: [
+              { twitterId: twitterProfile.id },
+              { email: user.email }
+            ]
+          });
+
+          if (!existingUser) {
+            // Create new user with starting credits
+            const newUser: Omit<User, '_id'> = {
+              twitterId: twitterProfile.id,
+              username: twitterProfile.username || user.name?.replace(/\s+/g, '_').toLowerCase() || 'unknown',
+              displayName: twitterProfile.name || user.name || '',
+              avatar: twitterProfile.profile_image_url || user.image || undefined,
+              email: user.email ?? undefined,
+              credits: parseInt(process.env.USER_STARTING_CREDITS || '2'),
+              totalEarned: 0,
+              totalSpent: 0,
+              joinedAt: new Date(),
+              lastActive: new Date(),
+              isActive: true,
+              settings: {
+                autoEngage: false,
+                maxEngagementsPerDay: 50,
+                emailNotifications: true,
+                pushNotifications: true,
+                privacy: 'public',
+              },
+              stats: {
+                totalEngagements: 0,
+                successRate: 0,
+                averageEarningsPerDay: 0,
+                streakDays: 0,
+                rank: 0,
+              },
+            };
+
+            await db.collection('users').insertOne(newUser);
+
+            // Create welcome credit transaction
+            await db.collection('credit_transactions').insertOne({
+              userId: twitterProfile.id,
+              type: 'bonus',
+              amount: parseInt(process.env.USER_STARTING_CREDITS || '2'),
+              balance: parseInt(process.env.USER_STARTING_CREDITS || '2'),
+              description: 'Welcome bonus',
+              createdAt: new Date(),
+            });
+          } else {
+            // Update last active
+            await db.collection('users').updateOne(
+              { twitterId: twitterProfile.id },
+              { 
+                $set: { 
+                  lastActive: new Date(),
+                  avatar: twitterProfile.profile_image_url || user.image,
+                  displayName: twitterProfile.name || user.name || existingUser.displayName,
+                }
+              }
+            );
+          }
+        }
+        return true;
+      } catch (error) {
+        console.error('Sign in error:', error);
+        return false;
+      }
     },
     
     async jwt({ token, account, profile, user }) {
-      console.log('JWT callback:', { token, account, profile, user });
       if (account && profile) {
         const twitterProfile = profile as TwitterProfile;
         token.twitterId = twitterProfile.id;
         token.username = twitterProfile.username || 'unknown';
-        token.credits = 2; // Default credits for debugging
+        
+        // Fetch user data from database
+        const { db } = await connectToDatabase();
+        const dbUser = await db.collection('users').findOne({ twitterId: twitterProfile.id });
+        
+        if (dbUser) {
+          token.credits = dbUser.credits;
+          token.userId = dbUser._id.toString();
+        }
       }
       return token;
     },

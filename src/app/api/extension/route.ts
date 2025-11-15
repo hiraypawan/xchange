@@ -70,6 +70,20 @@ type VersionInfo = {
 };
 
 const VERSION_HISTORY: Record<string, VersionInfo> = {
+  '1.3.9': {
+    releaseNotes: 'NOTIFICATION RUNTIME ERROR FIXES: Added proper callback error handling • Enhanced debugging • Eliminated runtime.lastError messages',
+    features: [
+      'Added proper callback functions to all chrome.notifications.create calls',
+      'Implemented chrome.runtime.lastError checking in notification callbacks',
+      'Enhanced notification debugging with detailed success/failure logging',
+      'Eliminated "Unchecked runtime.lastError" console errors',
+      'Added comprehensive error handling for notification creation',
+      'Improved notification reliability with proper Chrome API usage',
+      'Better error reporting for notification failures',
+      'Enhanced notification system stability and debugging capabilities'
+    ],
+    releaseDate: new Date().toISOString()
+  },
   '1.3.8': {
     releaseNotes: 'NOTIFICATION STABILITY FIXES: Wrapped all notification calls in try-catch • Eliminated notification errors • Enhanced error handling',
     features: [
@@ -82,7 +96,7 @@ const VERSION_HISTORY: Record<string, VersionInfo> = {
       'Better notification fallback mechanisms',
       'Eliminated all "missing required properties" notification errors'
     ],
-    releaseDate: new Date().toISOString()
+    releaseDate: '2025-11-15T18:30:00.000Z'
   },
   '1.3.7': {
     releaseNotes: 'API FIXES: Resolved posts feed 400 errors • Reduced console noise • Improved message filtering',
@@ -235,7 +249,7 @@ async function handleVersionCheck() {
     const manifest = JSON.parse(manifestContent);
     
     const version = manifest.version as string;
-    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.8'];
+    const versionInfo = VERSION_HISTORY[version] || VERSION_HISTORY['1.3.9'];
     
     return NextResponse.json({
       version: manifest.version,

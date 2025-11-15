@@ -58,10 +58,10 @@ export default function DashboardStats() {
   ];
 
   const engagementBreakdown = [
-    { type: 'Likes', count: stats.engagementBreakdown.likes, icon: Heart, color: 'text-red-500' },
-    { type: 'Retweets', count: stats.engagementBreakdown.retweets, icon: Repeat2, color: 'text-green-500' },
-    { type: 'Replies', count: stats.engagementBreakdown.replies, icon: MessageCircle, color: 'text-blue-500' },
-    { type: 'Follows', count: stats.engagementBreakdown.follows, icon: UserPlus, color: 'text-purple-500' },
+    { type: 'Likes', count: stats?.engagementBreakdown?.likes || 0, icon: Heart, color: 'text-red-500' },
+    { type: 'Retweets', count: stats?.engagementBreakdown?.retweets || 0, icon: Repeat2, color: 'text-green-500' },
+    { type: 'Replies', count: stats?.engagementBreakdown?.replies || 0, icon: MessageCircle, color: 'text-blue-500' },
+    { type: 'Follows', count: stats?.engagementBreakdown?.follows || 0, icon: UserPlus, color: 'text-purple-500' },
   ];
   if (error) {
     return (
@@ -200,7 +200,7 @@ export default function DashboardStats() {
             })}
           </div>
 
-          {stats.totalEngagements === 0 && !isLoading && (
+          {(stats?.totalEngagements || 0) === 0 && !isLoading && (
             <div className="text-center text-gray-500 mt-6">
               <p className="text-sm">No engagement data yet.</p>
               <p className="text-xs">Start engaging to see your breakdown!</p>

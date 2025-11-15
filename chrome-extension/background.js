@@ -474,6 +474,7 @@ function showAuthSuccessNotification(userData) {
       if (level === 'granted') {
         const notificationOptions = {
           type: 'basic',
+          iconUrl: 'icon.png',
           title: 'Xchangee Extension Connected!',
           message: `Welcome ${displayName}! Your extension is now connected and ready to earn credits automatically.`
         };

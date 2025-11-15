@@ -249,7 +249,7 @@ export default function EngagementFeed() {
         })}
       </div>
 
-      {posts.length === 0 && (
+      {(posts || []).length === 0 && (
         <div className="p-12 text-center">
           <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Heart className="h-6 w-6 text-gray-400" />

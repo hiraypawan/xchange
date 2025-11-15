@@ -21,7 +21,7 @@ export default function DashboardStats() {
   const statsData = [
     {
       name: 'Total Engagements',
-      value: stats.totalEngagements.toLocaleString(),
+      value: (stats?.totalEngagements || 0).toLocaleString(),
       change: '--',
       changeType: 'neutral',
       icon: Heart,
@@ -30,7 +30,7 @@ export default function DashboardStats() {
     },
     {
       name: 'Success Rate',
-      value: `${stats.successRate}%`,
+      value: `${stats?.successRate || 0}%`,
       change: '--',
       changeType: 'neutral',
       icon: Target,
@@ -39,7 +39,7 @@ export default function DashboardStats() {
     },
     {
       name: 'Completed Tasks',
-      value: stats.completedEngagements.toLocaleString(),
+      value: (stats?.completedEngagements || 0).toLocaleString(),
       change: '--',
       changeType: 'neutral',
       icon: TrendingUp,
@@ -48,9 +48,9 @@ export default function DashboardStats() {
     },
     {
       name: 'Weekly Earnings',
-      value: stats.weeklyEarnings.toLocaleString(),
-      change: `${stats.weeklyChange >= 0 ? '+' : ''}${stats.weeklyChange}%`,
-      changeType: stats.weeklyChange >= 0 ? 'increase' : 'decrease',
+      value: (stats?.weeklyEarnings || 0).toLocaleString(),
+      change: `${(stats?.weeklyChange || 0) >= 0 ? '+' : ''}${stats?.weeklyChange || 0}%`,
+      changeType: (stats?.weeklyChange || 0) >= 0 ? 'increase' : 'decrease',
       icon: Award,
       color: 'text-purple-500',
       bgColor: 'bg-purple-50',
@@ -100,7 +100,7 @@ export default function DashboardStats() {
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {statsData.map((stat, index) => {
+            {(statsData || []).map((stat, index) => {
               const Icon = stat.icon;
               return (
                 <motion.div

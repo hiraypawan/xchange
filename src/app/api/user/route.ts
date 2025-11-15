@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     const { db } = await connectToDatabase();
     const user = await db.collection('users').findOne(
       { _id: new ObjectId(session.user.id) }
-    ) as User;
+    ) as unknown as User;
 
     if (!user) {
       return NextResponse.json(

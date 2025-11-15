@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions, updateUserCredits } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
-import { TwitterAPI } from '@/lib/twitter-api';
 import { ObjectId } from 'mongodb';
 
 // POST /api/engage/complete - Complete an engagement and update credits

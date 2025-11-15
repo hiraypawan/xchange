@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import { createPostSchema, searchPostsSchema } from '@/lib/validations';
-import { extractTweetId, extractUsername } from '@/lib/utils';
+import { extractTweetId, extractUsernameFromUrl } from '@/lib/utils';
 import { ObjectId } from 'mongodb';
 
 // GET /api/posts - Get posts with filters and pagination
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
 
     // Extract tweet information
     const tweetId = extractTweetId(tweetUrl);
-    const username = extractUsername(tweetUrl);
+    const username = extractUsernameFromUrl(tweetUrl);
 
     if (!tweetId || !username) {
       return NextResponse.json(

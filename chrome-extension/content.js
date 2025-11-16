@@ -2,6 +2,7 @@
 
 let isProcessing = false;
 let observer = null;
+let heartbeatInterval = null;
 
 // Initialize content script
 (function() {
@@ -87,23 +88,39 @@ async function handleWebsiteMessage(event) {
   if (event.data?.type === 'EXTENSION_AUTH_SUCCESS') {
     console.log('Extension auth success received:', event.data);
     
+    // Check if extension context is still valid before sending message
+    if (!chrome.runtime || !chrome.runtime.id) {
+      console.log('🔄 Extension context invalidated - cannot store auth data');
+      return;
+    }
+    
     // Store auth data and notify background script
-    chrome.runtime.sendMessage({
-      type: 'STORE_AUTH_DATA',
-      authToken: event.data.authToken,
-      userId: event.data.userId,
-      userData: event.data.userData
-    }, (response) => {
-      if (response && response.success) {
-        console.log('Auth data stored successfully');
+    try {
+      chrome.runtime.sendMessage({
+        type: 'STORE_AUTH_DATA',
+        authToken: event.data.authToken,
+        userId: event.data.userId,
+        userData: event.data.userData
+      }, (response) => {
+        // Check for runtime errors
+        if (chrome.runtime.lastError) {
+          console.log('Auth data storage failed:', chrome.runtime.lastError.message);
+          return;
+        }
         
-        // Show success notification
-        window.postMessage({
-          type: 'SHOW_AUTH_SUCCESS',
-          userData: event.data.userData
-        }, '*');
-      }
-    });
+        if (response && response.success) {
+          console.log('Auth data stored successfully');
+          
+          // Show success notification
+          window.postMessage({
+            type: 'SHOW_AUTH_SUCCESS',
+            userData: event.data.userData
+          }, '*');
+        }
+      });
+    } catch (error) {
+      console.log('Failed to send auth data to background script:', error.message);
+    }
   }
   
   // Handle authentication from extension auth page
@@ -117,13 +134,27 @@ async function handleAuthenticationFromWebsite(authData) {
   try {
     console.log('Received authentication from website:', authData);
     
+    // Check if extension context is still valid
+    if (!chrome.runtime || !chrome.runtime.id) {
+      console.log('🔄 Extension context invalidated - cannot handle authentication');
+      return;
+    }
+    
     // Store auth data in extension storage
-    await chrome.runtime.sendMessage({
-      type: 'SET_AUTH',
-      authToken: authData.authToken,
-      userId: authData.userId,
-      userData: authData.userData
-    });
+    try {
+      await chrome.runtime.sendMessage({
+        type: 'SET_AUTH',
+        authToken: authData.authToken,
+        userId: authData.userId,
+        userData: authData.userData
+      });
+    } catch (error) {
+      if (error.message.includes('Extension context invalidated')) {
+        console.log('🔄 Extension context invalidated during auth handling');
+        return;
+      }
+      throw error;
+    }
     
     // Store user data in local storage for popup
     await chrome.storage.local.set({
@@ -133,11 +164,22 @@ async function handleAuthenticationFromWebsite(authData) {
       lastAuthTime: Date.now()
     });
     
-    // Show success notification
-    chrome.runtime.sendMessage({
-      type: 'SHOW_AUTH_SUCCESS_NOTIFICATION',
-      userData: authData.userData
-    });
+    // Show success notification (check context again)
+    if (chrome.runtime && chrome.runtime.id) {
+      try {
+        chrome.runtime.sendMessage({
+          type: 'SHOW_AUTH_SUCCESS_NOTIFICATION',
+          userData: authData.userData
+        }, (response) => {
+          // Handle any callback errors silently
+          if (chrome.runtime.lastError) {
+            console.log('Notification failed:', chrome.runtime.lastError.message);
+          }
+        });
+      } catch (error) {
+        console.log('Failed to send notification:', error.message);
+      }
+    }
     
     // Refresh page indicators
     setTimeout(() => {
@@ -209,8 +251,7 @@ async function getExtensionStatus() {
   }
 }
 
-// Global interval reference for cleanup
-let heartbeatInterval = null;
+// heartbeatInterval is now declared at the top of the file
 
 // Set up Xchangee website integration
 function setupXchangeeWebsiteIntegration() {

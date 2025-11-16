@@ -28,11 +28,12 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  pages: {
-    signIn: '/auth/signin',
-    signOut: '/auth/signout',
-    error: '/auth/error',
-  },
+  // Remove custom pages to use NextAuth's default flow
+  // pages: {
+  //   signIn: '/auth/signin',
+  //   signOut: '/auth/signout', 
+  //   error: '/auth/error',
+  // },
   session: {
     strategy: 'database',
     maxAge: 7 * 24 * 60 * 60, // 7 days

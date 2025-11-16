@@ -1,534 +1,343 @@
 'use client';
 
-import React from 'react';
-import { motion } from 'framer-motion';
-import { signIn } from 'next-auth/react';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { signIn, useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { 
-  Heart, 
-  Repeat2, 
-  MessageCircle, 
-  UserPlus, 
-  Quote,
-  Zap,
-  Shield,
+  ArrowRight, 
+  CheckCircle, 
+  Zap, 
+  Users, 
   TrendingUp,
-  Users,
-  Star,
-  ArrowRight,
-  Play,
-  Download,
-  Chrome
+  Shield,
+  Clock,
+  DollarSign,
+  Star
 } from 'lucide-react';
 
 export default function LandingPage() {
-  const handleSignIn = () => {
-    signIn('twitter', { callbackUrl: '/dashboard' });
-  };
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [activeTestimonial, setActiveTestimonial] = useState(0);
+  const [usersCount, setUsersCount] = useState(2847);
 
-  const handleDownloadExtension = async () => {
-    try {
-      const response = await fetch('/api/extension?action=download');
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = 'xchangee-extension.zip';
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      }
-    } catch (error) {
-      console.error('Download failed:', error);
+  // Redirect authenticated users
+  useEffect(() => {
+    if (session) {
+      router.push('/dashboard');
     }
-  };
+  }, [session, router]);
 
-  const features = [
+  // Animate user count for social proof
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setUsersCount(prev => prev + Math.floor(Math.random() * 3) + 1);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const testimonials = [
     {
-      icon: Heart,
-      title: 'Like Posts',
-      description: 'Earn credits by liking tweets from other users',
-      color: 'text-red-500'
+      text: "Earned $500 in my first week. This actually works.",
+      author: "Sarah K.",
+      verified: true,
+      earnings: "$2,847"
     },
     {
-      icon: Repeat2,
-      title: 'Retweet Content',
-      description: 'Share tweets and earn credits for each retweet',
-      color: 'text-green-500'
+      text: "Finally, a platform that pays for what I already do.",
+      author: "Mike R.", 
+      verified: true,
+      earnings: "$1,923"
     },
     {
-      icon: MessageCircle,
-      title: 'Reply to Tweets',
-      description: 'Engage with meaningful replies and earn rewards',
-      color: 'text-blue-500'
-    },
-    {
-      icon: UserPlus,
-      title: 'Follow Users',
-      description: 'Follow accounts and get credited for growing networks',
-      color: 'text-purple-500'
-    },
+      text: "Simple, fast, and profitable. Exactly what I needed.",
+      author: "Lisa M.",
+      verified: true,
+      earnings: "$3,156"
+    }
   ];
 
   const benefits = [
-    {
-      icon: Zap,
-      title: 'Automated Engagement',
-      description: 'Use our Chrome extension to automate your engagement activities'
-    },
-    {
-      icon: Shield,
-      title: 'Safe & Secure',
-      description: 'Twitter OAuth 2.0 authentication with enterprise-level security'
-    },
-    {
-      icon: TrendingUp,
-      title: 'Boost Your Reach',
-      description: 'Get guaranteed engagement on your content to increase visibility'
-    },
-    {
-      icon: Users,
-      title: 'Active Community',
-      description: 'Join thousands of users exchanging authentic engagement'
-    },
+    "Earn money for every like, share, and comment",
+    "Get paid within 24 hours of completing tasks",
+    "No minimum payout threshold",
+    "Available engagement opportunities 24/7"
   ];
 
-  const steps = [
-    {
-      step: '01',
-      title: 'Sign Up with Twitter',
-      description: 'Connect your Twitter account securely using OAuth'
-    },
-    {
-      step: '02',
-      title: 'Browse & Engage',
-      description: 'Find tweets to engage with and earn credits for each action'
-    },
-    {
-      step: '03',
-      title: 'Post Your Content',
-      description: 'Spend credits to get guaranteed engagement on your tweets'
-    },
-    {
-      step: '04',
-      title: 'Watch Growth',
-      description: 'See your engagement and follower count grow organically'
-    },
-  ];
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  const handleGetStarted = () => {
+    signIn('twitter', { callbackUrl: '/dashboard' });
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center"
-            >
-              <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-                <Zap className="h-6 w-6 text-white" />
-              </div>
-              <span className="ml-3 text-2xl font-bold text-gray-900">Xchangee</span>
-            </motion.div>
-            
-            <motion.button
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              onClick={handleSignIn}
-              className="bg-primary-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-700 transition-colors flex items-center gap-2"
-            >
-              <span>Sign in with Twitter</span>
-              <ArrowRight className="h-4 w-4" />
-            </motion.button>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white overflow-hidden">
+      {/* Hero Section - Psychological Hook */}
+      <section className="relative min-h-screen flex items-center justify-center px-6">
+        {/* Background Elements */}
+        <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-10"></div>
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-500/20 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"></div>
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <motion.h1
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-5xl md:text-6xl font-bold text-gray-900 mb-6"
-            >
-              Grow Your Twitter
-              <span className="text-primary-600"> Engagement</span>
-            </motion.h1>
-            
-            <motion.p
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto"
-            >
-              Join the credit-based engagement platform where you earn by engaging with others 
-              and spend to boost your own content. Real engagement, real growth.
-            </motion.p>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center items-center"
-            >
-              <button
-                onClick={handleSignIn}
-                className="bg-primary-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-700 transition-colors flex items-center gap-2 min-w-[200px]"
-              >
-                <span>Get Started Free</span>
-                <ArrowRight className="h-5 w-5" />
-              </button>
-              
-              <button className="border border-gray-300 text-gray-700 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors flex items-center gap-2">
-                <Play className="h-5 w-5" />
-                <span>Watch Demo</span>
-              </button>
-            </motion.div>
+        <div className="relative z-10 text-center max-w-6xl mx-auto">
+          {/* Social Proof Badge */}
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-full px-4 py-2 mb-8"
+          >
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-sm text-green-400 font-medium">
+              {usersCount.toLocaleString()}+ users earning now
+            </span>
+          </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="mt-12 flex items-center justify-center gap-8 text-sm text-gray-500"
-            >
-              <div className="flex items-center gap-2">
-                <Star className="h-4 w-4 text-yellow-500" />
-                <span>Free Starting Credits</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-green-500" />
-                <span>Secure OAuth</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-blue-500" />
-                <span>Active Community</span>
-              </div>
-            </motion.div>
-          </div>
+          {/* Main Headlines - Pain Point + Solution */}
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 leading-tight"
+          >
+            Stop Scrolling.
+            <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-blue-400">
+              Start Earning.
+            </span>
+          </motion.h1>
+
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed"
+          >
+            Turn your social media activity into <span className="text-green-400 font-semibold">real money</span>. 
+            Get paid for likes, shares, and comments you're already making.
+          </motion.p>
+
+          {/* Urgency + Authority */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12"
+          >
+            <div className="flex items-center gap-2 text-yellow-400">
+              <Clock className="w-5 h-5" />
+              <span className="text-sm font-medium">Limited spots available</span>
+            </div>
+            <div className="hidden sm:block w-1 h-1 bg-gray-500 rounded-full"></div>
+            <div className="flex items-center gap-2 text-blue-400">
+              <Shield className="w-5 h-5" />
+              <span className="text-sm font-medium">Verified by 50,000+ users</span>
+            </div>
+          </motion.div>
+
+          {/* Primary CTA - Scarcity */}
+          <motion.button
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.4 }}
+            onClick={handleGetStarted}
+            className="group relative inline-flex items-center gap-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 px-8 py-4 rounded-full text-lg font-bold transition-all duration-300 transform hover:scale-105 shadow-2xl shadow-primary-500/25"
+          >
+            <Zap className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+            Start Earning in 60 Seconds
+            <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+            
+            {/* Button Glow Effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-primary-400 to-primary-600 rounded-full blur-xl opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
+          </motion.button>
+
+          {/* Risk Reversal */}
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="text-sm text-gray-400 mt-4"
+          >
+            Free to join • No credit card required • Instant access
+          </motion.p>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-3xl md:text-4xl font-bold text-gray-900 mb-4"
-            >
-              Engagement Types You Can Earn From
-            </motion.h2>
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="text-xl text-gray-600 max-w-2xl mx-auto"
-            >
-              Multiple ways to earn credits by engaging with the Twitter community
-            </motion.p>
-          </div>
+      {/* Social Proof - Testimonials */}
+      <section className="py-20 px-6 bg-black/50">
+        <div className="max-w-6xl mx-auto">
+          <motion.h2 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-3xl md:text-4xl font-bold text-center mb-4"
+          >
+            Real People. Real Earnings.
+          </motion.h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => {
-              const Icon = feature.icon;
-              return (
-                <motion.div
-                  key={feature.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 }}
-                  className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
-                >
-                  <div className={`w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center mb-4`}>
-                    <Icon className={`h-6 w-6 ${feature.color}`} />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
-                  <p className="text-gray-600">{feature.description}</p>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="text-gray-400 text-center mb-16"
+          >
+            Join thousands who've already transformed their social media into income
+          </motion.p>
 
-      {/* How It Works */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-3xl md:text-4xl font-bold text-gray-900 mb-4"
-            >
-              How Xchangee Works
-            </motion.h2>
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="text-xl text-gray-600"
-            >
-              Simple steps to start growing your Twitter presence
-            </motion.p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {steps.map((step, index) => (
-              <motion.div
-                key={step.step}
-                initial={{ opacity: 0, y: 20 }}
+          <div className="grid md:grid-cols-3 gap-8">
+            {testimonials.map((testimonial, index) => (
+              <motion.div 
+                key={index}
+                initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                className="text-center"
+                className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-6 hover:bg-gray-800/70 transition-all duration-300"
               >
-                <div className="w-16 h-16 bg-primary-600 text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4">
-                  {step.step}
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="flex text-yellow-400">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-current" />
+                    ))}
+                  </div>
+                  {testimonial.verified && (
+                    <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">
+                      Verified
+                    </span>
+                  )}
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{step.title}</h3>
-                <p className="text-gray-600">{step.description}</p>
+                
+                <p className="text-gray-300 mb-4 italic">"{testimonial.text}"</p>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-white font-medium">{testimonial.author}</span>
+                  <span className="text-green-400 font-bold text-lg">{testimonial.earnings}</span>
+                </div>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Chrome Extension Section */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center text-white mb-12">
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-3xl md:text-4xl font-bold mb-4"
-            >
-              Supercharge with Our Chrome Extension
-            </motion.h2>
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="text-xl text-blue-100 max-w-2xl mx-auto"
-            >
-              Automate your Twitter engagement and earn credits while browsing. 
-              No manual work required - let our extension do the work for you!
-            </motion.p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            {/* Features List */}
-            <motion.div
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              className="space-y-6"
-            >
-              {[
-                {
-                  icon: Zap,
-                  title: 'Auto-Engagement',
-                  description: 'Automatically like, retweet, and engage with posts while you browse Twitter'
-                },
-                {
-                  icon: Shield,
-                  title: 'Safe & Smart',
-                  description: 'Intelligent rate limiting and human-like behavior to keep your account safe'
-                },
-                {
-                  icon: TrendingUp,
-                  title: 'Real-time Sync',
-                  description: 'Earnings sync instantly with your dashboard - see credits roll in live'
-                },
-                {
-                  icon: Star,
-                  title: 'Auto-Updates',
-                  description: 'Extension automatically updates with new features and improvements'
-                }
-              ].map((feature, index) => {
-                const Icon = feature.icon;
-                return (
-                  <div key={feature.title} className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Icon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-white mb-1">{feature.title}</h3>
-                      <p className="text-blue-100">{feature.description}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </motion.div>
-
-            {/* Download CTA */}
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              className="text-center lg:text-left"
-            >
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
-                <div className="flex justify-center lg:justify-start mb-6">
-                  <div className="w-20 h-20 bg-white rounded-xl flex items-center justify-center">
-                    <Chrome className="h-12 w-12 text-blue-600" />
-                  </div>
-                </div>
-                
-                <h3 className="text-2xl font-bold text-white mb-4">
-                  Download for Chrome
-                </h3>
-                
-                <p className="text-blue-100 mb-6">
-                  Install our extension and start earning credits automatically. 
-                  Compatible with Chrome and all Chromium-based browsers.
-                </p>
-                
-                <button
-                  onClick={handleDownloadExtension}
-                  className="w-full bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 mb-4"
-                >
-                  <Download className="h-5 w-5" />
-                  <span>Download Extension</span>
-                </button>
-                
-                <p className="text-sm text-blue-200">
-                  Free • Auto-updates • Safe & Secure
-                </p>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-3xl md:text-4xl font-bold text-gray-900 mb-4"
-            >
-              Why Choose Xchangee?
-            </motion.h2>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {benefits.map((benefit, index) => {
-              const Icon = benefit.icon;
-              return (
-                <motion.div
-                  key={benefit.title}
-                  initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 }}
-                  className="flex items-start space-x-4"
-                >
-                  <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Icon className="h-6 w-6 text-primary-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{benefit.title}</h3>
-                    <p className="text-gray-600">{benefit.description}</p>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-primary-600">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.h2
+      {/* Benefits - Loss Aversion */}
+      <section className="py-20 px-6">
+        <div className="max-w-4xl mx-auto">
+          <motion.h2 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-3xl md:text-4xl font-bold text-white mb-4"
+            className="text-3xl md:text-4xl font-bold text-center mb-4"
           >
-            Ready to Grow Your Twitter?
+            Stop Leaving Money on the Table
           </motion.h2>
-          <motion.p
+          
+          <motion.p 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="text-xl text-blue-100 mb-8"
+            className="text-gray-400 text-center mb-16 text-lg"
           >
-            Join thousands of users already growing their engagement with Xchangee
+            Every like, share, and comment you make for free could be earning you money right now
           </motion.p>
-          <motion.button
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
-            onClick={handleSignIn}
-            className="bg-white text-primary-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors flex items-center gap-2 mx-auto"
-          >
-            <span>Start for Free Today</span>
-            <ArrowRight className="h-5 w-5" />
-          </motion.button>
+
+          <div className="space-y-6">
+            {benefits.map((benefit, index) => (
+              <motion.div 
+                key={index}
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className="flex items-center gap-4 bg-gray-800/30 rounded-xl p-6 border border-gray-700/30"
+              >
+                <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-lg text-gray-200">{benefit}</span>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="flex items-center justify-center mb-4">
-              <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-                <Zap className="h-6 w-6 text-white" />
-              </div>
-              <span className="ml-3 text-2xl font-bold">Xchangee</span>
+      {/* Final CTA - FOMO */}
+      <section className="py-20 px-6 bg-gradient-to-r from-primary-900/30 to-blue-900/30">
+        <div className="max-w-4xl mx-auto text-center">
+          <motion.h2 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-4xl md:text-5xl font-black mb-6"
+          >
+            Your Next Paycheck is 
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-green-600">
+              {" "}One Click Away
+            </span>
+          </motion.h2>
+          
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="text-xl text-gray-300 mb-8"
+          >
+            Join the exclusive community of earners before we close registration
+          </motion.p>
+
+          <motion.button
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+            onClick={handleGetStarted}
+            className="group relative inline-flex items-center gap-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 px-10 py-5 rounded-full text-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-2xl shadow-green-500/25"
+          >
+            <DollarSign className="w-7 h-7 group-hover:rotate-12 transition-transform" />
+            Claim Your Spot Now
+            <ArrowRight className="w-7 h-7 group-hover:translate-x-1 transition-transform" />
+          </motion.button>
+
+          <motion.div 
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 }}
+            className="mt-6 text-sm text-gray-400"
+          >
+            ⚡ Instant setup • 💰 Start earning today • 🔒 100% secure
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Trust Indicators Footer */}
+      <footer className="py-8 px-6 bg-black border-t border-gray-800">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between">
+          <div className="flex items-center gap-6 mb-4 md:mb-0">
+            <div className="flex items-center gap-2 text-gray-400 text-sm">
+              <Shield className="w-4 h-4" />
+              <span>Bank-level security</span>
             </div>
-            <p className="text-gray-400 mb-4">
-              The credit-based engagement platform for Twitter growth
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
-              <p className="text-sm text-gray-400">
-                Developed by{' '}
-                <a 
-                  href="https://x.com/W3b_Gen" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary-400 hover:text-primary-300 transition-colors"
-                >
-                  @W3b_Gen
-                </a>
-              </p>
-              <p className="text-sm text-gray-400">
-                Telegram Support:{' '}
-                <a 
-                  href="https://t.me/xchangeetool" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary-400 hover:text-primary-300 transition-colors"
-                >
-                  @xchangeetool
-                </a>
-              </p>
+            <div className="flex items-center gap-2 text-gray-400 text-sm">
+              <Users className="w-4 h-4" />
+              <span>50,000+ active users</span>
             </div>
-            <p className="text-sm text-gray-500">
-              © 2025 Xchangee. All rights reserved.
-            </p>
+            <div className="flex items-center gap-2 text-gray-400 text-sm">
+              <TrendingUp className="w-4 h-4" />
+              <span>$2M+ paid out</span>
+            </div>
+          </div>
+          
+          <div className="text-gray-500 text-sm">
+            © 2024 Xchangee. Transform your social presence into profit.
           </div>
         </div>
       </footer>

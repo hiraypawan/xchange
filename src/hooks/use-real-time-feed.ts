@@ -38,7 +38,7 @@ export function useRealTimeFeed() {
   const [hasMore, setHasMore] = useState(true);
 
   const fetchFeed = useCallback(async (refresh = false) => {
-    if (!session?.user?.id) {
+    if (!session?.user) {
       setIsLoading(false);
       return;
     }
@@ -74,7 +74,7 @@ export function useRealTimeFeed() {
     } finally {
       setIsLoading(false);
     }
-  }, [session?.user?.id]);
+  }, [session?.user]);
 
   const engageWithPost = useCallback(async (postId: string, engagementType: string) => {
     try {
@@ -129,14 +129,14 @@ export function useRealTimeFeed() {
 
   // Real-time updates every 10 seconds
   useEffect(() => {
-    if (!session?.user?.id) return;
+    if (!session?.user) return;
 
     const interval = setInterval(() => {
       fetchFeed(false);
     }, 10000); // Update every 10 seconds
 
     return () => clearInterval(interval);
-  }, [session?.user?.id, fetchFeed]);
+  }, [session?.user, fetchFeed]);
 
   // Refresh on window focus
   useEffect(() => {

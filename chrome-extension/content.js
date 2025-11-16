@@ -152,10 +152,29 @@ async function handleAuthenticationFromWebsite(authData) {
 // Get extension status for announcements
 async function getExtensionStatus() {
   try {
+    // Check if extension context is still valid
+    if (!chrome.runtime || !chrome.runtime.id) {
+      console.log('🔄 Extension context invalidated - extension was reloaded');
+      return {
+        isInstalled: false,
+        isAuthenticated: false,
+        isConnected: false,
+        userId: null,
+        userData: null,
+        contextInvalidated: true
+      };
+    }
+
     console.log('Getting extension status...');
     
-    // Get current auth status
-    const authStatus = await chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' });
+    // Get current auth status with timeout
+    const authStatus = await Promise.race([
+      chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 3000)
+      )
+    ]);
+    
     console.log('Extension status retrieved - Auth status:', authStatus);
     
     return {
@@ -166,6 +185,19 @@ async function getExtensionStatus() {
       userData: authStatus?.userData || null
     };
   } catch (error) {
+    if (error.message.includes('Extension context invalidated')) {
+      console.log('🔄 Extension was reloaded - stopping content script activities');
+      stopContentScriptActivities();
+      return {
+        isInstalled: false,
+        isAuthenticated: false,
+        isConnected: false,
+        userId: null,
+        userData: null,
+        contextInvalidated: true
+      };
+    }
+    
     console.error('Failed to get extension status:', error);
     return {
       isInstalled: true,
@@ -176,6 +208,9 @@ async function getExtensionStatus() {
     };
   }
 }
+
+// Global interval reference for cleanup
+let heartbeatInterval = null;
 
 // Set up Xchangee website integration
 function setupXchangeeWebsiteIntegration() {
@@ -191,21 +226,61 @@ function setupXchangeeWebsiteIntegration() {
   announceExtensionPresence();
   
   // Send periodic heartbeats to keep the website updated
-  setInterval(() => {
+  heartbeatInterval = setInterval(() => {
     announceExtensionPresence();
   }, 5000); // Every 5 seconds
   
   console.log('✅ Xchangee website integration initialized');
 }
 
+// Stop all content script activities when extension context is invalidated
+function stopContentScriptActivities() {
+  console.log('🛑 Stopping content script activities due to context invalidation');
+  
+  // Clear heartbeat interval
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+  
+  // Disconnect mutation observer
+  if (observer) {
+    observer.disconnect();
+    observer = null;
+  }
+  
+  console.log('✅ Content script activities stopped');
+}
+
 // Announce extension presence to website
 async function announceExtensionPresence() {
   try {
+    // Check if extension context is still valid before doing anything
+    if (!chrome.runtime || !chrome.runtime.id) {
+      console.log('🔄 Extension context invalidated during heartbeat - stopping activities');
+      stopContentScriptActivities();
+      return;
+    }
+
     console.log('📡 Announcing extension presence...');
     
     // Get extension status
     const status = await getExtensionStatus();
+    
+    // If context was invalidated during status check, stop here
+    if (status.contextInvalidated) {
+      console.log('🔄 Extension context invalidated - skipping heartbeat');
+      return;
+    }
+    
     console.log('📊 Extension status:', status);
+    
+    // Check context again before accessing manifest
+    if (!chrome.runtime || !chrome.runtime.id) {
+      console.log('🔄 Extension context invalidated before sending heartbeat');
+      stopContentScriptActivities();
+      return;
+    }
     
     // Send heartbeat message to website
     window.postMessage({
@@ -218,7 +293,12 @@ async function announceExtensionPresence() {
     
     console.log('✅ Extension heartbeat sent');
   } catch (error) {
-    console.error('❌ Failed to announce extension presence:', error);
+    if (error.message.includes('Extension context invalidated')) {
+      console.log('🔄 Extension context invalidated during heartbeat - cleaning up');
+      stopContentScriptActivities();
+    } else {
+      console.error('❌ Failed to announce extension presence:', error);
+    }
   }
 }
 
@@ -264,11 +344,26 @@ function setupMutationObserver() {
   }
 }
 
-// Clean up on page unload
+// Clean up on page unload and when extension context is invalidated
 window.addEventListener('beforeunload', () => {
-  if (observer) {
-    observer.disconnect();
-  }
+  console.log('🧹 Page unloading - cleaning up content script');
+  stopContentScriptActivities();
 });
+
+// Also listen for extension context invalidation
+if (typeof chrome !== 'undefined' && chrome.runtime) {
+  try {
+    // Check if the context gets invalidated periodically
+    const contextChecker = setInterval(() => {
+      if (!chrome.runtime || !chrome.runtime.id) {
+        console.log('🔄 Extension context invalidated - cleaning up');
+        clearInterval(contextChecker);
+        stopContentScriptActivities();
+      }
+    }, 10000); // Check every 10 seconds
+  } catch (error) {
+    console.log('Context checker setup failed:', error.message);
+  }
+}
 
 console.log('🚀 Xchangee content script fully loaded');

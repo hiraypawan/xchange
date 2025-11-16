@@ -617,10 +617,21 @@ function showAuthSuccessNotification(userData) {
 
 // Send heartbeat to website tabs to announce extension presence
 async function sendHeartbeatToWebsite() {
+  // This function is now handled by sendHeartbeatToWebsite() below
+}
+
+// Send heartbeat to website tabs
+async function sendHeartbeatToWebsite() {
   try {
     const tabs = await chrome.tabs.query({ 
-      url: ['https://xchangee.vercel.app/*', 'http://localhost:3000/*'] 
+      url: ['https://xchangee.vercel.app/*', 'http://localhost:3000/*', 'http://localhost:3001/*'] 
     });
+    
+    if (tabs.length === 0) {
+      // No Xchangee tabs open, skip heartbeat
+      return;
+    }
+    
     const manifest = chrome.runtime.getManifest();
     
     // Get fresh auth status
@@ -642,7 +653,7 @@ async function sendHeartbeatToWebsite() {
             // Silently handle connection errors - they're normal when content script isn't loaded
             if (chrome.runtime.lastError.message.includes('Could not establish connection') ||
                 chrome.runtime.lastError.message.includes('Receiving end does not exist')) {
-              // This is normal - content script not loaded yet
+              // This is normal - content script not loaded yet or page refreshing
               return;
             }
             console.log('Heartbeat error for tab', tab.id, ':', chrome.runtime.lastError.message);

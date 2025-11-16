@@ -175,7 +175,6 @@ async function getExtensionStatus() {
       userData: null
     };
   }
-  }
 }
 
 // Add visual indicators for Xchangee-eligible tweets

@@ -1,0 +1,300 @@
+/**
+ * Remote Code Loader for Xchangee Extension
+ * This file loads ALL core logic from remote server for instant updates
+ */
+
+class RemoteLoader {
+  constructor() {
+    this.baseUrl = 'https://xchangee.vercel.app/api/extension-remote';
+    this.cacheKey = 'xchangee_remote_code';
+    this.versionKey = 'xchangee_remote_version';
+    this.cacheTimeout = 60 * 1000; // 1 minute cache
+    this.retryCount = 3;
+    this.loadedModules = new Map();
+  }
+
+  /**
+   * Main loader function - call this to initialize remote code
+   */
+  async loadRemoteCore() {
+    console.log('🚀 RemoteLoader: Starting remote core loading...');
+    
+    try {
+      // Try to load from server first
+      const remoteCode = await this.fetchRemoteCode();
+      if (remoteCode) {
+        console.log('✅ RemoteLoader: Loaded fresh code from server');
+        return await this.executeRemoteCode(remoteCode);
+      }
+
+      // Fallback to cached version
+      console.log('⚠️ RemoteLoader: Server unavailable, trying cached version...');
+      const cachedCode = await this.getCachedCode();
+      if (cachedCode) {
+        console.log('✅ RemoteLoader: Using cached code as fallback');
+        return await this.executeRemoteCode(cachedCode);
+      }
+
+      throw new Error('No remote code available (server down + no cache)');
+      
+    } catch (error) {
+      console.error('❌ RemoteLoader: Failed to load remote code:', error);
+      
+      // Ultimate fallback - basic functionality
+      return this.loadFallbackCore();
+    }
+  }
+
+  /**
+   * Fetch code from remote server with retry logic
+   */
+  async fetchRemoteCode() {
+    for (let attempt = 1; attempt <= this.retryCount; attempt++) {
+      try {
+        console.log(`🌐 RemoteLoader: Fetching remote code (attempt ${attempt}/${this.retryCount})`);
+        
+        const response = await fetch(`${this.baseUrl}/core.js?v=${Date.now()}`, {
+          method: 'GET',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'X-Extension-Version': chrome.runtime.getManifest().version
+          },
+          timeout: 10000 // 10 second timeout
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const code = await response.text();
+        const serverVersion = response.headers.get('X-Code-Version') || 'unknown';
+        
+        // Check if version changed
+        const cachedVersion = localStorage.getItem(this.versionKey);
+        if (cachedVersion && cachedVersion !== serverVersion) {
+          console.log(`🔄 RemoteLoader: Version updated: ${cachedVersion} → ${serverVersion}`);
+        }
+
+        // Cache the new code and version
+        localStorage.setItem(this.cacheKey, code);
+        localStorage.setItem(this.versionKey, serverVersion);
+        localStorage.setItem(`${this.cacheKey}_timestamp`, Date.now().toString());
+
+        console.log(`✅ RemoteLoader: Remote code loaded successfully (v${serverVersion})`);
+        return code;
+
+      } catch (error) {
+        console.error(`❌ RemoteLoader: Attempt ${attempt} failed:`, error.message);
+        
+        if (attempt === this.retryCount) {
+          console.error('❌ RemoteLoader: All retry attempts failed');
+          return null;
+        }
+        
+        // Wait before retry (exponential backoff)
+        await this.sleep(Math.pow(2, attempt) * 1000);
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Get cached code if available and not expired
+   */
+  async getCachedCode() {
+    try {
+      const cachedCode = localStorage.getItem(this.cacheKey);
+      const timestamp = parseInt(localStorage.getItem(`${this.cacheKey}_timestamp`) || '0');
+      const version = localStorage.getItem(this.versionKey);
+      
+      if (!cachedCode || !timestamp) {
+        console.log('📭 RemoteLoader: No cached code available');
+        return null;
+      }
+
+      const age = Date.now() - timestamp;
+      if (age > this.cacheTimeout) {
+        console.log(`⏰ RemoteLoader: Cache expired (${Math.round(age/1000)}s old)`);
+        return null;
+      }
+
+      console.log(`📦 RemoteLoader: Using cached code (v${version}, ${Math.round(age/1000)}s old)`);
+      return cachedCode;
+
+    } catch (error) {
+      console.error('❌ RemoteLoader: Failed to get cached code:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Safely execute remote code using Function constructor
+   */
+  async executeRemoteCode(code) {
+    try {
+      console.log('⚡ RemoteLoader: Executing remote code...');
+      
+      // Create safe execution environment
+      const remoteFunction = new Function(`
+        const console = arguments[0];
+        const chrome = arguments[1];
+        const window = arguments[2];
+        const document = arguments[3];
+        const localStorage = arguments[4];
+        
+        // Remote code execution
+        ${code}
+        
+        // Return initialization function
+        return typeof initXchangeeCore === 'function' ? initXchangeeCore : null;
+      `);
+
+      // Execute with controlled environment
+      const initFunction = remoteFunction(
+        console,
+        chrome,
+        window,
+        document,
+        localStorage
+      );
+
+      if (typeof initFunction === 'function') {
+        console.log('✅ RemoteLoader: Remote code executed, initializing core...');
+        const result = await initFunction();
+        console.log('🎉 RemoteLoader: Remote core initialized successfully');
+        return result;
+      } else {
+        throw new Error('Remote code did not return initXchangeeCore function');
+      }
+
+    } catch (error) {
+      console.error('❌ RemoteLoader: Failed to execute remote code:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Basic fallback functionality when remote code fails
+   */
+  loadFallbackCore() {
+    console.log('🆘 RemoteLoader: Loading basic fallback functionality...');
+    
+    return {
+      version: 'fallback-1.0.0',
+      engage: () => console.log('⚠️ Fallback: Engagement disabled - remote code unavailable'),
+      detectButtons: () => [],
+      isReady: false,
+      error: 'Remote core unavailable'
+    };
+  }
+
+  /**
+   * Load specific remote module (for modular updates)
+   */
+  async loadModule(moduleName) {
+    try {
+      if (this.loadedModules.has(moduleName)) {
+        return this.loadedModules.get(moduleName);
+      }
+
+      console.log(`📦 RemoteLoader: Loading module "${moduleName}"`);
+      
+      const response = await fetch(`${this.baseUrl}/${moduleName}.js?v=${Date.now()}`);
+      if (!response.ok) {
+        throw new Error(`Failed to load module ${moduleName}: HTTP ${response.status}`);
+      }
+
+      const moduleCode = await response.text();
+      const moduleFunction = new Function(`
+        ${moduleCode}
+        return typeof module !== 'undefined' ? module : {};
+      `);
+
+      const moduleExports = moduleFunction();
+      this.loadedModules.set(moduleName, moduleExports);
+      
+      console.log(`✅ RemoteLoader: Module "${moduleName}" loaded successfully`);
+      return moduleExports;
+
+    } catch (error) {
+      console.error(`❌ RemoteLoader: Failed to load module "${moduleName}":`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Check for code updates (can be called periodically)
+   */
+  async checkForUpdates() {
+    try {
+      const response = await fetch(`${this.baseUrl}/version`, {
+        method: 'HEAD'
+      });
+      
+      const serverVersion = response.headers.get('X-Code-Version');
+      const cachedVersion = localStorage.getItem(this.versionKey);
+      
+      if (serverVersion && serverVersion !== cachedVersion) {
+        console.log(`🔄 RemoteLoader: Update available: ${cachedVersion} → ${serverVersion}`);
+        return { hasUpdate: true, newVersion: serverVersion, currentVersion: cachedVersion };
+      }
+      
+      return { hasUpdate: false, currentVersion: cachedVersion };
+      
+    } catch (error) {
+      console.error('❌ RemoteLoader: Failed to check for updates:', error);
+      return { hasUpdate: false, error: error.message };
+    }
+  }
+
+  /**
+   * Force refresh remote code (bypass cache)
+   */
+  async forceRefresh() {
+    console.log('🔄 RemoteLoader: Force refreshing remote code...');
+    
+    // Clear cache
+    localStorage.removeItem(this.cacheKey);
+    localStorage.removeItem(this.versionKey);
+    localStorage.removeItem(`${this.cacheKey}_timestamp`);
+    this.loadedModules.clear();
+    
+    // Load fresh code
+    return await this.loadRemoteCore();
+  }
+
+  /**
+   * Get current status
+   */
+  getStatus() {
+    const version = localStorage.getItem(this.versionKey);
+    const timestamp = parseInt(localStorage.getItem(`${this.cacheKey}_timestamp`) || '0');
+    const age = timestamp ? Date.now() - timestamp : null;
+    
+    return {
+      version: version || 'unknown',
+      lastUpdate: timestamp ? new Date(timestamp).toISOString() : null,
+      cacheAge: age,
+      isReady: !!localStorage.getItem(this.cacheKey)
+    };
+  }
+
+  /**
+   * Utility function for delays
+   */
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+}
+
+// Global instance
+window.RemoteLoader = RemoteLoader;
+
+// Auto-initialize if in content script context
+if (typeof chrome !== 'undefined' && chrome.runtime) {
+  window.xchangeeRemoteLoader = new RemoteLoader();
+  console.log('🚀 RemoteLoader: Instance created and ready');
+}
+
+console.log('📦 RemoteLoader: Module loaded successfully');

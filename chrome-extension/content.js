@@ -1,17 +1,21 @@
-// Content script for Xchangee Chrome Extension - runs on Twitter/X pages
+// Content script for Xchangee Chrome Extension - Remote Code Loader Version
 
 let isProcessing = false;
 let observer = null;
 let heartbeatInterval = null;
+let remoteCore = null; // Will hold the remote functionality
 
-// Initialize content script
-(function() {
-  console.log('🔌 Xchangee content script loaded on:', window.location.hostname);
+// Initialize content script with remote code loading
+(async function() {
+  console.log('🔌 Xchangee content script (Remote Loader) loaded on:', window.location.hostname);
   console.log('🔌 Full URL:', window.location.href);
+  
+  // Load remote core first
+  await initializeRemoteCore();
   
   // Check which domain we're on and initialize accordingly
   if (window.location.hostname.includes('twitter.com') || window.location.hostname.includes('x.com')) {
-    console.log('🐦 Setting up Twitter integration');
+    console.log('🐦 Setting up Twitter integration with remote core');
     setupTwitterIntegration();
   } else if (window.location.hostname.includes('xchangee.vercel.app') || 
              window.location.hostname.includes('localhost') || 
@@ -19,11 +23,30 @@ let heartbeatInterval = null;
     console.log('🌐 Setting up Xchangee website integration');
     setupXchangeeWebsiteIntegration();
   } else {
-    // For any other domain, still try to setup communication for testing
     console.log('❓ Unknown domain, setting up basic extension communication:', window.location.hostname);
     setupXchangeeWebsiteIntegration();
   }
 })();
+
+// Initialize remote core functionality
+async function initializeRemoteCore() {
+  try {
+    console.log('🚀 Initializing remote core...');
+    
+    // Load remote core from server
+    remoteCore = await window.xchangeeRemoteLoader.loadRemoteCore();
+    
+    if (remoteCore && remoteCore.isReady) {
+      console.log(`✅ Remote core loaded successfully (v${remoteCore.version})`);
+    } else {
+      console.warn('⚠️ Remote core loaded but may have limited functionality');
+    }
+    
+  } catch (error) {
+    console.error('❌ Failed to initialize remote core:', error);
+    // Continue with basic functionality
+  }
+}
 
 // Set up Twitter page integration
 function setupTwitterIntegration() {
@@ -365,23 +388,36 @@ function handleMessage(request, sender, sendResponse) {
   }
 }
 
-// Minimal Twitter integration functions for basic functionality
+// Twitter integration functions using remote core
 function addXchangeeIndicators() {
-  // Simplified for now - just log that we're on Twitter
-  console.log('🐦 Twitter integration loaded');
+  if (remoteCore && remoteCore.isReady) {
+    console.log('🐦 Twitter integration loaded with remote core');
+    // Let remote core handle the detection
+    const health = remoteCore.healthCheck();
+    console.log('🔍 Remote core health:', health);
+  } else {
+    console.log('🐦 Twitter integration loaded (fallback mode)');
+  }
 }
 
 function setupMutationObserver() {
-  // Simplified mutation observer
-  if (typeof MutationObserver !== 'undefined') {
-    observer = new MutationObserver(() => {
-      // Minimal observation for now
-    });
-    
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+  if (remoteCore && remoteCore.setupDynamicObserver) {
+    // Let remote core handle the observer
+    remoteCore.setupDynamicObserver();
+    console.log('👁️ Using remote core observer');
+  } else {
+    // Fallback local observer
+    if (typeof MutationObserver !== 'undefined') {
+      observer = new MutationObserver(() => {
+        console.log('👀 Local observer detected changes');
+      });
+      
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+      console.log('👁️ Local fallback observer setup');
+    }
   }
 }
 

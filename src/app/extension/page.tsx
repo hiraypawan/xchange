@@ -100,8 +100,8 @@ export default function ExtensionPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <h1 className="text-2xl font-bold text-gray-900">Xchangee Extension</h1>
-              <span className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">
-                v{extensionVersion}
+              <span className="bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full">
+                Auto-Updates
               </span>
             </div>
             <a 
@@ -147,11 +147,11 @@ export default function ExtensionPage() {
             ) : (
               <Download className="w-6 h-6" />
             )}
-            Download Extension v{extensionVersion}
+            Download Extension
           </motion.button>
 
           <p className="text-sm text-gray-500 mt-4">
-            Free download • Chrome browser required • Latest version always available
+            Free download • Chrome browser required • Auto-updates enabled
           </p>
         </div>
 
@@ -222,7 +222,7 @@ export default function ExtensionPage() {
               </h4>
               <div className="text-yellow-700 space-y-2 text-sm">
                 <p><strong>Extension not loading?</strong> Make sure you have Chrome Developer mode enabled</p>
-                <p><strong>Can't find the file?</strong> Check your Downloads folder for xchangee-extension-v{extensionVersion}.zip</p>
+                <p><strong>Can't find the file?</strong> Check your Downloads folder for the xchangee-extension.zip file</p>
                 <p><strong>Need to extract?</strong> Right-click the ZIP file and select "Extract All"</p>
                 <p><strong>Still having issues?</strong> Contact support on{' '}
                   <a 
@@ -243,11 +243,10 @@ export default function ExtensionPage() {
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
           <CheckCircle className="w-8 h-8 text-blue-600 mx-auto mb-3" />
           <h4 className="text-lg font-semibold text-blue-900 mb-2">
-            Automatic Updates
+            Revolutionary Auto-Updates
           </h4>
           <p className="text-blue-700">
-            Once installed, the extension will automatically update to the latest version. 
-            No need to manually download updates!
+            Our extension uses advanced remote code loading technology. All functionality updates automatically without ever needing to reinstall the extension!
           </p>
         </div>
       </div>

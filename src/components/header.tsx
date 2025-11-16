@@ -21,8 +21,8 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [extensionVersion, setExtensionVersion] = useState('1.4.18');
 
-  // Don't show header on landing page or auth pages
-  if (pathname === '/' || pathname?.startsWith('/auth/')) {
+  // Don't show header on landing page, auth pages, or extension page
+  if (pathname === '/' || pathname?.startsWith('/auth/') || pathname === '/extension') {
     return null;
   }
 
@@ -91,9 +91,6 @@ export default function Header() {
             >
               <Chrome className="w-4 h-4" />
               Install Extension
-              <span className="text-xs bg-blue-500 px-2 py-0.5 rounded">
-                v{extensionVersion}
-              </span>
             </Link>
 
             {/* Mobile Extension Button */}
@@ -201,7 +198,7 @@ export default function Header() {
                 onClick={() => setIsMenuOpen(false)}
               >
                 <Chrome className="w-5 h-5" />
-                Install Extension v{extensionVersion}
+                Install Extension
               </Link>
             </nav>
           </div>

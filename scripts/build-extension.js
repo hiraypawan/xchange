@@ -83,19 +83,18 @@ async function updateVersionInfo() {
 }
 
 async function main() {
-  // Auto-bump version before building
-  const { bumpExtensionVersion } = require('./auto-version-bump.js');
-  const newVersion = await bumpExtensionVersion();
+  // Skip version bumping for remote-update system
+  console.log('📦 Building extension with static version (remote updates active)');
   
   await updateVersionInfo();
   await buildExtension();
   
   console.log('\n🎉 Extension build complete!');
-  console.log(`📦 New version: ${newVersion}`);
-  console.log('💡 Users can now download the latest version from:');
+  console.log('📦 Version: 1.0.0 (static - remote updates handle functionality)');
+  console.log('💡 Users can download the extension from:');
   console.log('   • /api/extension?action=download');
   console.log('   • /extension/download');
-  console.log('🔄 Extension will auto-update for users');
+  console.log('🔄 All updates handled remotely - no version changes needed');
 }
 
 if (require.main === module) {

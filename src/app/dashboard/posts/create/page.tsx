@@ -389,7 +389,7 @@ export default function CreatePostPage() {
                   <p className="font-medium text-blue-800 mb-1">How it works:</p>
                   <ul className="text-blue-700 space-y-1 text-xs">
                     <li>• Your tweet will be shown to community members</li>
-                    <li>• Members earn credits by engaging with your post</li>
+                    <li>• Members earn 1 credit by engaging with your post</li>
                     <li>• You get guaranteed engagement within 24 hours</li>
                     <li>• Higher priority posts are shown first</li>
                   </ul>

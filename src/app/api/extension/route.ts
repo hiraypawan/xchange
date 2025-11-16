@@ -82,7 +82,7 @@ const VERSION_HISTORY: Record<string, VersionInfo> = {
       'Guaranteed update mechanism that cannot be blocked by Chrome API issues',
       'Completely eliminated all remaining notification calls from startup and error handling'
     ],
-    releaseDate: new Date().toISOString()
+    releaseDate: '2025-11-16T05:54:37.977Z'
   },
   '1.4.1': {
     releaseNotes: 'EMERGENCY NOTIFICATION DISABLE: Completely removed notifications to eliminate runtime errors • Faster silent auto-updates • Zero errors',

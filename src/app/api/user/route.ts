@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.twitterId) {
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -19,9 +19,34 @@ export async function GET(req: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const user = await db.collection('users').findOne(
-      { _id: new ObjectId(session.user.id) }
-    ) as unknown as User;
+    
+    // Try to find user by multiple identifiers
+    let user = null;
+    
+    // Try by ObjectId first
+    if (session.user.id && session.user.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        user = await db.collection('users').findOne({ 
+          _id: new ObjectId(session.user.id) 
+        });
+      } catch (error) {
+        console.log('ObjectId lookup failed:', error);
+      }
+    }
+    
+    // Try by twitterId if available
+    if (!user && session.user.twitterId) {
+      user = await db.collection('users').findOne({ 
+        twitterId: session.user.twitterId 
+      });
+    }
+    
+    // Try by email as fallback
+    if (!user && session.user.email) {
+      user = await db.collection('users').findOne({ 
+        email: session.user.email 
+      });
+    }
 
     if (!user) {
       return NextResponse.json(

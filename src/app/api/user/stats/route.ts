@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     
     console.log('Stats API - session:', session);
     
-    if (!session?.user?.id) {
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -22,24 +22,29 @@ export async function GET(req: NextRequest) {
     // Get user by multiple possible identifiers
     let user = null;
     
-    // Try by ObjectId first (if session.user.id looks like an ObjectId)
-    if (session.user.id.match(/^[0-9a-fA-F]{24}$/)) {
+    // Try by twitterId first (most reliable after our auth fix)
+    if (session.user.twitterId) {
       user = await db.collection('users').findOne({ 
-        _id: new (await import('mongodb')).ObjectId(session.user.id) 
+        twitterId: session.user.twitterId 
       });
     }
     
-    // If not found, try by email
+    // Try by ObjectId if available and valid
+    if (!user && session.user.id && session.user.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const { ObjectId } = await import('mongodb');
+        user = await db.collection('users').findOne({ 
+          _id: new ObjectId(session.user.id) 
+        });
+      } catch (error) {
+        console.log('ObjectId lookup failed:', error);
+      }
+    }
+    
+    // Try by email as last resort
     if (!user && session.user.email) {
       user = await db.collection('users').findOne({ 
         email: session.user.email 
-      });
-    }
-    
-    // If not found, try by twitterId (if available)
-    if (!user && session.user.twitterId) {
-      user = await db.collection('users').findOne({ 
-        twitterId: session.user.twitterId 
       });
     }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -19,29 +19,12 @@ export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [extensionVersion, setExtensionVersion] = useState('1.4.18');
 
   // Don't show header on landing page, auth pages, or extension page
   if (pathname === '/' || pathname?.startsWith('/auth/') || pathname === '/extension') {
     return null;
   }
 
-  useEffect(() => {
-    // Fetch latest extension version
-    const fetchExtensionVersion = async () => {
-      try {
-        const response = await fetch('/api/extension?action=info');
-        const data = await response.json();
-        if (data.success) {
-          setExtensionVersion(data.version);
-        }
-      } catch (error) {
-        console.error('Failed to fetch extension version:', error);
-      }
-    };
-
-    fetchExtensionVersion();
-  }, []);
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: '/' });

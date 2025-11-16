@@ -496,17 +496,27 @@ async function clearUpdateInfo() {
   }
 }
 
-// Trigger Chrome's built-in auto-update mechanism
+// Handle extension updates for sideloaded extensions
 async function triggerChromeAutoUpdate(newVersion) {
   try {
-    console.log(`🔄 Triggering Chrome auto-update to version ${newVersion}`);
+    console.log(`🔄 Checking update mechanism for version ${newVersion}`);
     
-    // Use Chrome's built-in extension update API
+    // Check if this is a sideloaded extension (developer mode)
+    const manifest = chrome.runtime.getManifest();
+    const updateUrl = manifest.update_url;
+    
+    if (!updateUrl) {
+      // This is a sideloaded extension - Chrome can't auto-update it
+      console.log('📦 Sideloaded extension detected - showing manual update notification');
+      showSideloadedUpdateNotification(newVersion);
+      return;
+    }
+    
+    // For store extensions or those with update_url
     if (chrome.runtime.requestUpdateCheck) {
       chrome.runtime.requestUpdateCheck((status, details) => {
         if (chrome.runtime.lastError) {
           console.log('Update check failed:', chrome.runtime.lastError.message);
-          // Fallback to manual update notification
           showManualUpdateNotification(newVersion);
           return;
         }
@@ -516,22 +526,17 @@ async function triggerChromeAutoUpdate(newVersion) {
         switch (status) {
           case 'update_available':
             console.log('✅ Update available, Chrome will download automatically');
-            chrome.notifications.create('xchangee-update-downloading', {
-              type: 'basic',
-              iconUrl: 'icon.png',
-              title: 'Xchangee Extension Updating',
-              message: `Version ${newVersion} is being downloaded by Chrome. Extension will restart automatically.`
-            });
+            showUpdateDownloadingNotification(newVersion);
             break;
             
           case 'no_update':
-            console.log('ℹ️ Chrome says no update available, but server says otherwise');
-            showManualUpdateNotification(newVersion);
+            console.log('ℹ️ Chrome says no update available');
+            showSideloadedUpdateNotification(newVersion);
             break;
             
           case 'throttled':
             console.log('⏱️ Update check throttled, will retry later');
-            setTimeout(() => triggerChromeAutoUpdate(newVersion), 30000); // Retry in 30 seconds
+            setTimeout(() => triggerChromeAutoUpdate(newVersion), 60000); // Retry in 1 minute
             break;
             
           default:
@@ -550,15 +555,44 @@ async function triggerChromeAutoUpdate(newVersion) {
   }
 }
 
+// Show notification for sideloaded extension updates
+function showSideloadedUpdateNotification(newVersion) {
+  console.log('📢 Showing sideloaded extension update notification');
+  
+  // Create notification without iconUrl to avoid image loading errors
+  chrome.notifications.create('xchangee-sideloaded-update', {
+    type: 'basic',
+    title: 'Xchangee Extension Update Available',
+    message: `Version ${newVersion} is ready! Download from the Xchangee website and reload in chrome://extensions/`
+  });
+  
+  // Store update notification info
+  chrome.storage.local.set({
+    sideloadedUpdateNotified: {
+      version: newVersion,
+      timestamp: Date.now(),
+      downloadUrl: `${API_BASE_URL}/extension?action=download`
+    }
+  });
+}
+
+// Show notification for automatic downloads
+function showUpdateDownloadingNotification(newVersion) {
+  chrome.notifications.create('xchangee-update-downloading', {
+    type: 'basic',
+    title: 'Xchangee Extension Updating',
+    message: `Version ${newVersion} is being downloaded by Chrome. Extension will restart automatically.`
+  });
+}
+
 // Show manual update notification when auto-update fails
 function showManualUpdateNotification(newVersion) {
   console.log('📢 Showing manual update notification');
   
   chrome.notifications.create('xchangee-manual-update', {
     type: 'basic',
-    iconUrl: 'icon.png',
     title: 'Xchangee Extension Update Available',
-    message: `Version ${newVersion} is available! The extension will update automatically, or you can reload it manually from chrome://extensions/`
+    message: `Version ${newVersion} is available! Check the Xchangee website for the latest download.`
   });
   
   // Store update notification info

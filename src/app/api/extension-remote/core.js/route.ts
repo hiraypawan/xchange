@@ -48,7 +48,68 @@ const XchangeeRemoteCore = {
     }
   },
   
-  // Engagement engine (updates instantly)
+  // Credit notification system
+  showCreditNotification(message, type = 'info') {
+    // Create notification overlay
+    const notification = document.createElement('div');
+    notification.style.cssText = \`
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: \${type === 'warning' ? '#f59e0b' : '#3b82f6'};
+      color: white;
+      padding: 16px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10000;
+      max-width: 350px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      animation: slideIn 0.3s ease-out;
+    \`;
+    
+    notification.innerHTML = \`
+      <div style="display: flex; align-items: start; gap: 10px;">
+        <div style="flex-shrink: 0; font-size: 18px;">⚡</div>
+        <div>
+          <div style="font-weight: 600; margin-bottom: 4px;">Xchangee Credit System</div>
+          <div>\${message}</div>
+        </div>
+      </div>
+    \`;
+    
+    // Add animation keyframes
+    if (!document.getElementById('xchangee-notification-styles')) {
+      const style = document.createElement('style');
+      style.id = 'xchangee-notification-styles';
+      style.textContent = \`
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+          from { transform: translateX(0); opacity: 1; }
+          to { transform: translateX(100%); opacity: 0; }
+        }
+      \`;
+      document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(notification);
+    
+    // Auto remove after 6 seconds
+    setTimeout(() => {
+      notification.style.animation = 'slideOut 0.3s ease-in';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.remove();
+        }
+      }, 300);
+    }, 6000);
+  },
+
+  // Engagement engine with credit checking
   async performLike(tweetElement) {
     console.log('💖 Remote Core: Performing like action');
     
@@ -78,8 +139,15 @@ const XchangeeRemoteCore = {
                      likeButton.classList.contains('liked');
       
       if (isLiked) {
-        console.log('✅ Like action completed successfully');
-        return { success: true, action: 'liked' };
+        console.log('✅ Like action completed successfully - earned 1 credit');
+        
+        // Show credit earned notification
+        this.showCreditNotification(
+          'You earned 1 credit for liking this tweet! Keep engaging to build your credit balance.',
+          'info'
+        );
+        
+        return { success: true, action: 'liked', creditsEarned: 1 };
       } else {
         throw new Error('Like action verification failed');
       }
@@ -112,11 +180,24 @@ const XchangeeRemoteCore = {
       if (confirmButton) {
         confirmButton.click();
         await this.waitForAction(500);
-        console.log('✅ Retweet action completed successfully');
-        return { success: true, action: 'retweeted' };
+        console.log('✅ Retweet action completed successfully - earned 1 credit');
+        
+        // Show credit earned notification
+        this.showCreditNotification(
+          'You earned 1 credit for retweeting! Keep engaging to build your credit balance.',
+          'info'
+        );
+        
+        return { success: true, action: 'retweeted', creditsEarned: 1 };
       } else {
-        console.log('✅ Retweet action completed (no confirmation needed)');
-        return { success: true, action: 'retweeted' };
+        console.log('✅ Retweet action completed (no confirmation needed) - earned 1 credit');
+        
+        this.showCreditNotification(
+          'You earned 1 credit for retweeting! Keep engaging to build your credit balance.',
+          'info'
+        );
+        
+        return { success: true, action: 'retweeted', creditsEarned: 1 };
       }
       
     } catch (error) {
@@ -148,8 +229,15 @@ const XchangeeRemoteCore = {
       followButton.click();
       await this.waitForAction(500);
       
-      console.log('✅ Follow action completed successfully');
-      return { success: true, action: 'followed' };
+      console.log('✅ Follow action completed successfully - earned 1 credit');
+      
+      // Show credit earned notification
+      this.showCreditNotification(
+        'You earned 1 credit for following! Keep engaging to build your credit balance.',
+        'info'
+      );
+      
+      return { success: true, action: 'followed', creditsEarned: 1 };
       
     } catch (error) {
       console.error('❌ Follow action failed:', error);
@@ -193,9 +281,24 @@ const XchangeeRemoteCore = {
     return buttons;
   },
   
+  // Show insufficient credit notification
+  showInsufficientCreditNotification() {
+    this.showCreditNotification(
+      'No engagements will happen unless you engage with others first! Like/RT/Follow others to earn credits, then you will receive engagements on your posts.',
+      'warning'
+    );
+  },
+
   // Engagement pipeline (orchestrates actions)
-  async executeEngagement(engagementType, targetElement) {
+  async executeEngagement(engagementType, targetElement, userCredits = 0) {
     console.log(\`⚡ Remote Core: Executing \${engagementType} engagement\`);
+    
+    // Check if user has credits for receiving engagements
+    if (userCredits < 1) {
+      console.log('⚠️ User has insufficient credits - showing notification');
+      this.showInsufficientCreditNotification();
+      // Still continue with engagement to earn credits
+    }
     
     try {
       let result;

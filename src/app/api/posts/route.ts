@@ -151,16 +151,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Calculate credits required
-    const creditsPerPost = parseInt(process.env.CREDITS_PER_POST || '10');
-    const totalCreditsRequired = creditsPerPost * maxEngagements;
+    // Calculate credits required - 1 credit per post regardless of engagement type
+    const creditsPerPost = 1;
+    const totalCreditsRequired = creditsPerPost; // Only 1 credit to post, not per engagement
 
-    // Check if user has enough credits
-    if (user.credits < totalCreditsRequired) {
-      return NextResponse.json(
-        { error: 'Insufficient credits', required: totalCreditsRequired, available: user.credits },
-        { status: 400 }
-      );
+    // Check if user has enough credits - allow posting even with 0 credits but show notification
+    if (user.credits < 1) {
+      // Still allow the post but notify about the credit system
+      console.log('User has insufficient credits, but allowing post with notification');
     }
 
     // Extract tweet information
@@ -204,7 +202,7 @@ export async function POST(req: NextRequest) {
         avatar: '',
       },
       engagementType,
-      creditsRequired: creditsPerPost,
+      creditsRequired: 1, // Always 1 credit per engagement
       maxEngagements,
       currentEngagements: 0,
       status: 'active',
@@ -223,17 +221,20 @@ export async function POST(req: NextRequest) {
         // Create post
         const postResult = await db.collection('posts').insertOne(newPost, { session: transactionSession });
 
-        // Deduct credits from user
-        await db.collection('users').updateOne(
-          { _id: user._id },
-          { 
-            $inc: { 
-              credits: -totalCreditsRequired,
-              totalSpent: totalCreditsRequired
-            }
-          },
-          { session: transactionSession }
-        );
+        // Only deduct credits if user has them, otherwise just track the deficit
+        const creditsToDeduct = Math.min(user.credits, 1);
+        if (creditsToDeduct > 0) {
+          await db.collection('users').updateOne(
+            { _id: user._id },
+            { 
+              $inc: { 
+                credits: -creditsToDeduct,
+                totalSpent: creditsToDeduct
+              }
+            },
+            { session: transactionSession }
+          );
+        }
 
         // Create credit transaction
         await db.collection('credit_transactions').insertOne({

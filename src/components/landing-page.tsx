@@ -99,7 +99,7 @@ export default function LandingPage() {
     {
       step: '01',
       title: 'Sign Up with Twitter',
-      description: 'Connect your Twitter account and get 100 free credits to start'
+      description: 'Connect your Twitter account securely using OAuth'
     },
     {
       step: '02',
@@ -200,7 +200,7 @@ export default function LandingPage() {
             >
               <div className="flex items-center gap-2">
                 <Star className="h-4 w-4 text-yellow-500" />
-                <span>2 Free Credits</span>
+                <span>Free Starting Credits</span>
               </div>
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-green-500" />

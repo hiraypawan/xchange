@@ -115,6 +115,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           userId,
           userData: data.userData
         });
+      }).catch(error => {
+        console.error('Failed to get auth status:', error);
+        sendResponse({ 
+          isAuthenticated: false, 
+          userId: null,
+          userData: null,
+          error: error.message 
+        });
       });
       return true; // Async response
       
@@ -542,19 +550,29 @@ async function sendHeartbeatToWebsite() {
     const currentUserId = authData.userId;
     
     tabs.forEach(tab => {
-      chrome.tabs.sendMessage(tab.id, {
-        type: 'EXTENSION_HEARTBEAT',
-        source: 'extension',
-        version: manifest.version,
-        isAuthenticated: !!currentAuthToken,
-        userId: currentUserId
-      }).catch(err => {
-        // Tab might not have content script loaded yet, that's ok
-        // Only log if it's a real error, not just content script not ready
-        if (!err.message.includes('Could not establish connection')) {
-          console.log('Could not send heartbeat to tab:', tab.id, err.message);
-        }
-      });
+      try {
+        chrome.tabs.sendMessage(tab.id, {
+          type: 'EXTENSION_HEARTBEAT',
+          source: 'extension',
+          version: manifest.version,
+          isAuthenticated: !!currentAuthToken,
+          userId: currentUserId
+        }, (response) => {
+          // Clear chrome.runtime.lastError to prevent uncaught errors
+          if (chrome.runtime.lastError) {
+            // Silently handle connection errors - they're normal when content script isn't loaded
+            if (chrome.runtime.lastError.message.includes('Could not establish connection') ||
+                chrome.runtime.lastError.message.includes('Receiving end does not exist')) {
+              // This is normal - content script not loaded yet
+              return;
+            }
+            console.log('Heartbeat error for tab', tab.id, ':', chrome.runtime.lastError.message);
+          }
+        });
+      } catch (error) {
+        // Catch any synchronous errors
+        console.log('Failed to send heartbeat to tab', tab.id, ':', error.message);
+      }
     });
   } catch (error) {
     console.error('Failed to send heartbeat:', error);

@@ -112,15 +112,15 @@ export default function ProfilePage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Total Earned</span>
-                <span className="font-medium">2,847</span>
+                <span className="font-medium">0</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Total Spent</span>
-                <span className="font-medium">1,234</span>
+                <span className="font-medium">0</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Success Rate</span>
-                <span className="font-medium">94.2%</span>
+                <span className="font-medium">0%</span>
               </div>
             </div>
           </div>

@@ -94,8 +94,8 @@ export default function CreatePostPage() {
   };
 
   const calculateCost = () => {
-    const creditsPerPost = 10; // From environment
-    return creditsPerPost * formData.maxEngagements;
+    const creditsPerEngagement = 1; // 1 credit per engagement
+    return creditsPerEngagement * formData.maxEngagements;
   };
 
   const handlePreview = async () => {

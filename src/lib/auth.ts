@@ -45,12 +45,9 @@ export const authOptions: NextAuthOptions = {
           const { db } = await connectToDatabase();
           const twitterProfile = profile as TwitterProfile;
           
-          // Check if user exists
+          // Check if user exists by twitterId only (each Twitter account is unique)
           const existingUser = await db.collection('users').findOne({
-            $or: [
-              { twitterId: twitterProfile.id },
-              { email: user.email }
-            ]
+            twitterId: twitterProfile.id
           });
 
           if (!existingUser) {
@@ -126,9 +123,29 @@ export const authOptions: NextAuthOptions = {
           
           // Fetch additional user data from our custom users collection
           const { db } = await connectToDatabase();
-          const dbUser = await db.collection('users').findOne({ 
-            email: session.user.email 
-          });
+          
+          // First try to find by user ID (from NextAuth adapter)
+          let dbUser = null;
+          if (user.id) {
+            try {
+              dbUser = await db.collection('users').findOne({ 
+                _id: new ObjectId(user.id)
+              });
+            } catch (error) {
+              // If ObjectId conversion fails, try finding by twitterId or email
+              dbUser = await db.collection('users').findOne({
+                $or: [
+                  { twitterId: user.id },
+                  { email: session.user.email }
+                ]
+              });
+            }
+          } else {
+            // Fallback to email if no user.id
+            dbUser = await db.collection('users').findOne({ 
+              email: session.user.email 
+            });
+          }
           
           console.log('Session callback - dbUser found:', dbUser);
           

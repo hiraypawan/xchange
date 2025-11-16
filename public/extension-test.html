@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xchangee Extension Communication Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .status-box {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-connected { background: #4CAF50; }
+        .status-disconnected { background: #f44336; }
+        .log-entry {
+            background: #f9f9f9;
+            padding: 8px;
+            margin: 4px 0;
+            border-left: 3px solid #2196F3;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔌 Xchangee Extension Communication Test</h1>
+    
+    <div class="status-box">
+        <h3>Extension Status</h3>
+        <div id="status">
+            <span class="status-indicator status-disconnected" id="statusIndicator"></span>
+            <span id="statusText">Checking...</span>
+        </div>
+        <div style="margin-top: 10px;">
+            <strong>Details:</strong>
+            <ul id="statusDetails">
+                <li>Installed: <span id="isInstalled">Unknown</span></li>
+                <li>Authenticated: <span id="isAuthenticated">Unknown</span></li>
+                <li>Connected: <span id="isConnected">Unknown</span></li>
+                <li>Version: <span id="version">Unknown</span></li>
+                <li>Last Response: <span id="lastResponse">Never</span></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="status-box">
+        <h3>Actions</h3>
+        <button onclick="checkExtension()">Check Extension</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+        <button onclick="startPeriodicCheck()">Start Auto Check</button>
+        <button onclick="stopPeriodicCheck()">Stop Auto Check</button>
+    </div>
+
+    <div class="status-box">
+        <h3>Communication Log</h3>
+        <div id="logContainer" style="max-height: 300px; overflow-y: auto;">
+            <!-- Logs will appear here -->
+        </div>
+    </div>
+
+    <script>
+        let extensionStatus = {
+            isInstalled: false,
+            isAuthenticated: false,
+            isConnected: false,
+            version: null,
+            lastResponse: null
+        };
+        
+        let checkInterval = null;
+        let responses = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.textContent = `${timestamp}: ${message}`;
+            
+            const container = document.getElementById('logContainer');
+            container.appendChild(logEntry);
+            container.scrollTop = container.scrollHeight;
+            
+            console.log(`[${type.toUpperCase()}]`, message);
+        }
+
+        function updateStatus(status) {
+            extensionStatus = { ...extensionStatus, ...status };
+            
+            // Update UI
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            
+            if (extensionStatus.isInstalled && extensionStatus.isConnected) {
+                indicator.className = 'status-indicator status-connected';
+                statusText.textContent = 'Extension Connected';
+            } else {
+                indicator.className = 'status-indicator status-disconnected';
+                statusText.textContent = 'Extension Not Connected';
+            }
+            
+            // Update details
+            document.getElementById('isInstalled').textContent = extensionStatus.isInstalled;
+            document.getElementById('isAuthenticated').textContent = extensionStatus.isAuthenticated;
+            document.getElementById('isConnected').textContent = extensionStatus.isConnected;
+            document.getElementById('version').textContent = extensionStatus.version || 'Unknown';
+            document.getElementById('lastResponse').textContent = 
+                extensionStatus.lastResponse ? new Date(extensionStatus.lastResponse).toLocaleTimeString() : 'Never';
+        }
+
+        function checkExtension() {
+            log('Sending XCHANGEE_EXTENSION_CHECK message');
+            
+            window.postMessage({
+                type: 'XCHANGEE_EXTENSION_CHECK',
+                source: 'website'
+            }, '*');
+            
+            // Set timeout to mark as disconnected if no response
+            setTimeout(() => {
+                const recentResponses = responses.filter(r => 
+                    Date.now() - r.timestamp < 2000
+                );
+                
+                if (recentResponses.length === 0) {
+                    log('❌ No extension response received - extension may not be loaded');
+                    updateStatus({
+                        isInstalled: false,
+                        isAuthenticated: false,
+                        isConnected: false,
+                        lastResponse: null
+                    });
+                }
+            }, 2000);
+        }
+
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = '';
+            responses = [];
+        }
+
+        function startPeriodicCheck() {
+            if (checkInterval) return;
+            
+            log('🔄 Starting periodic extension checks (every 5 seconds)');
+            checkInterval = setInterval(checkExtension, 5000);
+        }
+
+        function stopPeriodicCheck() {
+            if (checkInterval) {
+                clearInterval(checkInterval);
+                checkInterval = null;
+                log('⏹️ Stopped periodic extension checks');
+            }
+        }
+
+        // Listen for extension messages
+        window.addEventListener('message', (event) => {
+            log(`📨 Received message: ${JSON.stringify(event.data)}`);
+            
+            if (event.data?.source === 'extension') {
+                log(`✅ Extension response: ${event.data.type}`);
+                
+                responses.push({
+                    timestamp: Date.now(),
+                    data: event.data
+                });
+                
+                if (event.data.type === 'XCHANGEE_EXTENSION_RESPONSE' || 
+                    event.data.type === 'XCHANGEE_EXTENSION_HEARTBEAT') {
+                    
+                    updateStatus({
+                        isInstalled: true,
+                        isAuthenticated: event.data.isAuthenticated || false,
+                        isConnected: true,
+                        version: event.data.version,
+                        lastResponse: Date.now()
+                    });
+                    
+                    log(`📊 Extension Status - Authenticated: ${event.data.isAuthenticated}, Version: ${event.data.version}`);
+                }
+            } else if (event.data?.source === 'website' && event.data?.type === 'XCHANGEE_EXTENSION_CHECK') {
+                log('📤 Website sent extension check (our own message)');
+            }
+        });
+
+        // Initialize
+        log('🚀 Extension communication test initialized');
+        log('🌍 Current URL: ' + window.location.href);
+        checkExtension();
+        
+        // Start periodic checking
+        startPeriodicCheck();
+    </script>
+</body>
+</html>

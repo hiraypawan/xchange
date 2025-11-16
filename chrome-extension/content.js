@@ -5,12 +5,21 @@ let observer = null;
 
 // Initialize content script
 (function() {
-  console.log('Xchangee content script loaded');
+  console.log('🔌 Xchangee content script loaded on:', window.location.hostname);
+  console.log('🔌 Full URL:', window.location.href);
   
   // Check which domain we're on and initialize accordingly
   if (window.location.hostname.includes('twitter.com') || window.location.hostname.includes('x.com')) {
+    console.log('🐦 Setting up Twitter integration');
     setupTwitterIntegration();
-  } else if (window.location.hostname.includes('xchangee.vercel.app') || window.location.hostname.includes('localhost')) {
+  } else if (window.location.hostname.includes('xchangee.vercel.app') || 
+             window.location.hostname.includes('localhost') || 
+             window.location.hostname.includes('127.0.0.1')) {
+    console.log('🌐 Setting up Xchangee website integration');
+    setupXchangeeWebsiteIntegration();
+  } else {
+    // For any other domain, still try to setup communication for testing
+    console.log('❓ Unknown domain, setting up basic extension communication:', window.location.hostname);
     setupXchangeeWebsiteIntegration();
   }
 })();
@@ -46,7 +55,7 @@ function initializeTwitter() {
 
 // Handle messages from the website
 async function handleWebsiteMessage(event) {
-  console.log('Content script received message:', event.data);
+  console.log('📨 Content script received message:', event.data);
   
   if (event.data?.type === 'XCHANGEE_EXTENSION_CHECK' && event.data?.source === 'website') {
     console.log('Handling extension check request');

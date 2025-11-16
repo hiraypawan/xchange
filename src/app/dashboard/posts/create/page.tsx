@@ -94,8 +94,8 @@ export default function CreatePostPage() {
   };
 
   const calculateCost = () => {
-    const creditsPerEngagement = 1; // 1 credit per engagement
-    return creditsPerEngagement * formData.maxEngagements;
+    const creditsToPost = 1; // 1 credit to create a post
+    return creditsToPost; // Cost is always 1 credit to post
   };
 
   const handlePreview = async () => {

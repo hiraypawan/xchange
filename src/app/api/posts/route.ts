@@ -221,39 +221,40 @@ export async function POST(req: NextRequest) {
         // Create post
         const postResult = await db.collection('posts').insertOne(newPost, { session: transactionSession });
 
-        // Only deduct credits if user has them, otherwise just track the deficit
-        const creditsToDeduct = Math.min(user.credits, 1);
-        if (creditsToDeduct > 0) {
+        // Only deduct credits from the posting user (not all users)
+        if (user.credits >= 1) {
           await db.collection('users').updateOne(
             { _id: user._id },
             { 
               $inc: { 
-                credits: -creditsToDeduct,
-                totalSpent: creditsToDeduct
+                credits: -1,
+                totalSpent: 1
               }
             },
             { session: transactionSession }
           );
         }
 
-        // Create credit transaction
-        await db.collection('credit_transactions').insertOne({
-          userId: user._id.toString(),
-          type: 'spend',
-          amount: -totalCreditsRequired,
-          balance: user.credits - totalCreditsRequired,
-          description: `Created engagement post for ${engagementType}`,
-          metadata: {
-            postId: postResult.insertedId.toString(),
-          },
-          createdAt: new Date(),
-        }, { session: transactionSession });
+        // Create credit transaction only if credits were actually deducted
+        if (user.credits >= 1) {
+          await db.collection('credit_transactions').insertOne({
+            userId: user._id.toString(),
+            type: 'spend',
+            amount: -1,
+            balance: user.credits - 1,
+            description: `Created engagement post for ${engagementType}`,
+            metadata: {
+              postId: postResult.insertedId.toString(),
+            },
+            createdAt: new Date(),
+          }, { session: transactionSession });
+        }
       });
       
       return NextResponse.json({
         success: true,
         message: 'Post created successfully',
-        data: { creditsSpent: totalCreditsRequired }
+        data: { creditsSpent: user.credits >= 1 ? 1 : 0 }
       });
     } finally {
       await transactionSession.endSession();

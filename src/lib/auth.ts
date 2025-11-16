@@ -59,7 +59,7 @@ export const authOptions: NextAuthOptions = {
               displayName: twitterProfile.name || user.name || '',
               avatar: twitterProfile.profile_image_url || user.image || undefined,
               email: user.email ?? undefined,
-              credits: parseInt(process.env.USER_STARTING_CREDITS || '2'),
+              credits: parseInt(process.env.USER_STARTING_CREDITS || '100'),
               totalEarned: 0,
               totalSpent: 0,
               joinedAt: new Date(),
@@ -87,8 +87,8 @@ export const authOptions: NextAuthOptions = {
             await db.collection('credit_transactions').insertOne({
               userId: twitterProfile.id,
               type: 'bonus',
-              amount: parseInt(process.env.USER_STARTING_CREDITS || '2'),
-              balance: parseInt(process.env.USER_STARTING_CREDITS || '2'),
+              amount: parseInt(process.env.USER_STARTING_CREDITS || '100'),
+              balance: parseInt(process.env.USER_STARTING_CREDITS || '100'),
               description: 'Welcome bonus',
               createdAt: new Date(),
             });

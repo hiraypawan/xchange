@@ -51,7 +51,7 @@ export function useRealTimeStats() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchStats = useCallback(async () => {
-    if (!session?.user?.id) {
+    if (!session?.user) {
       setIsLoading(false);
       return;
     }

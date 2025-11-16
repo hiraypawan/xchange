@@ -530,7 +530,7 @@ async function triggerChromeAutoUpdate(newVersion) {
             break;
             
           case 'no_update':
-            console.log('ℹ️ Chrome says no update available');
+            console.log('ℹ️ Chrome says no update available - this is normal for sideloaded extensions');
             showSideloadedUpdateNotification(newVersion);
             break;
             

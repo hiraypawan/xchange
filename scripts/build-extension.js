@@ -83,13 +83,19 @@ async function updateVersionInfo() {
 }
 
 async function main() {
+  // Auto-bump version before building
+  const { bumpExtensionVersion } = require('./auto-version-bump.js');
+  const newVersion = await bumpExtensionVersion();
+  
   await updateVersionInfo();
   await buildExtension();
   
   console.log('\n🎉 Extension build complete!');
+  console.log(`📦 New version: ${newVersion}`);
   console.log('💡 Users can now download the latest version from:');
   console.log('   • /api/extension?action=download');
   console.log('   • /extension/download');
+  console.log('🔄 Extension will auto-update for users');
 }
 
 if (require.main === module) {

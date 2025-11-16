@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Xchangee - Twitter Engagement Automation",
-  "version": "1.4.5",
+  "version": "1.4.7",
   "description": "Automate Twitter engagement and earn credits with Xchangee platform",
   "update_url": "https://xchangee.vercel.app/api/extension?action=update",
   "permissions": [
@@ -31,14 +31,21 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://twitter.com/*", "https://x.com/*"],
-      "js": ["content.js"],
-      "css": ["styles.css"],
+      "matches": [
+        "https://twitter.com/*",
+        "https://x.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
       "run_at": "document_idle"
     },
     {
       "matches": [
-        "https://xchangee.vercel.app/*", 
+        "https://xchangee.vercel.app/*",
         "http://localhost:3000/*",
         "http://localhost:3001/*",
         "http://localhost:8080/*",
@@ -50,7 +57,9 @@
         "https://localhost:3000/*",
         "https://localhost:3001/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -70,8 +79,13 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["inject.js"],
-      "matches": ["https://twitter.com/*", "https://x.com/*"]
+      "resources": [
+        "inject.js"
+      ],
+      "matches": [
+        "https://twitter.com/*",
+        "https://x.com/*"
+      ]
     }
   ]
 }

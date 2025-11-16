@@ -7,6 +7,8 @@
     "dev": "next dev",
     "build": "next build && npm run build:extension",
     "build:extension": "node scripts/build-extension.js",
+    "version:bump": "node scripts/auto-version-bump.js",
+    "extension:deploy": "npm run build:extension && echo 'Extension auto-updated to new version!'",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",

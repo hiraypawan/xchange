@@ -129,50 +129,88 @@ class RemoteLoader {
   }
 
   /**
-   * Safely execute remote code using Function constructor
+   * Execute remote code using script tag injection (CSP-safe)
    */
   async executeRemoteCode(code) {
     try {
-      console.log('⚡ RemoteLoader: Executing remote code...');
+      console.log('⚡ RemoteLoader: Executing remote code via script injection...');
       
-      // Create safe execution environment
-      const remoteFunction = new Function(`
-        const console = arguments[0];
-        const chrome = arguments[1];
-        const window = arguments[2];
-        const document = arguments[3];
-        const localStorage = arguments[4];
+      return new Promise((resolve, reject) => {
+        // Create a unique callback name
+        const callbackName = `xchangeeRemoteInit_${Date.now()}`;
         
-        // Remote code execution
-        ${code}
+        // Prepare the code with proper callback
+        const wrappedCode = `
+          (function() {
+            ${code}
+            
+            // Call the callback when ready
+            if (typeof initXchangeeCore === 'function') {
+              window.${callbackName} = initXchangeeCore;
+              console.log('✅ RemoteLoader: Remote code loaded, initializing...');
+              
+              try {
+                const result = initXchangeeCore();
+                window.${callbackName}_result = result;
+                window.${callbackName}_ready = true;
+                console.log('🎉 RemoteLoader: Remote core initialized successfully');
+              } catch (error) {
+                window.${callbackName}_error = error;
+                console.error('❌ RemoteLoader: Remote core init failed:', error);
+              }
+            } else {
+              window.${callbackName}_error = new Error('initXchangeeCore function not found');
+              console.error('❌ RemoteLoader: initXchangeeCore function not found in remote code');
+            }
+          })();
+        `;
         
-        // Return initialization function
-        return typeof initXchangeeCore === 'function' ? initXchangeeCore : null;
-      `);
-
-      // Execute with controlled environment
-      const initFunction = remoteFunction(
-        console,
-        chrome,
-        window,
-        document,
-        localStorage
-      );
-
-      if (typeof initFunction === 'function') {
-        console.log('✅ RemoteLoader: Remote code executed, initializing core...');
-        const result = await initFunction();
-        console.log('🎉 RemoteLoader: Remote core initialized successfully');
-        return result;
-      } else {
-        throw new Error('Remote code did not return initXchangeeCore function');
-      }
+        // Create and inject script element
+        const script = document.createElement('script');
+        script.textContent = wrappedCode;
+        script.onload = () => {
+          // Check if initialization completed
+          const checkReady = () => {
+            if (window[callbackName + '_ready']) {
+              const result = window[callbackName + '_result'];
+              // Cleanup
+              document.head.removeChild(script);
+              delete window[callbackName];
+              delete window[callbackName + '_result'];
+              delete window[callbackName + '_ready'];
+              resolve(result);
+            } else if (window[callbackName + '_error']) {
+              const error = window[callbackName + '_error'];
+              // Cleanup
+              document.head.removeChild(script);
+              delete window[callbackName];
+              delete window[callbackName + '_error'];
+              reject(error);
+            } else {
+              // Keep checking
+              setTimeout(checkReady, 100);
+            }
+          };
+          
+          setTimeout(checkReady, 100);
+        };
+        
+        script.onerror = (error) => {
+          console.error('❌ RemoteLoader: Script injection failed:', error);
+          document.head.removeChild(script);
+          delete window[callbackName];
+          reject(new Error('Script injection failed'));
+        };
+        
+        // Inject the script
+        document.head.appendChild(script);
+      });
 
     } catch (error) {
       console.error('❌ RemoteLoader: Failed to execute remote code:', error);
       throw error;
     }
-  }
+  },
 
   /**
    * Basic fallback functionality when remote code fails
@@ -190,7 +228,7 @@ class RemoteLoader {
   }
 
   /**
-   * Load specific remote module (for modular updates)
+   * Load specific remote module (for modular updates) - CSP-safe version
    */
   async loadModule(moduleName) {
     try {
@@ -206,12 +244,35 @@ class RemoteLoader {
       }
 
       const moduleCode = await response.text();
-      const moduleFunction = new Function(`
-        ${moduleCode}
-        return typeof module !== 'undefined' ? module : {};
-      `);
+      
+      // Use script injection instead of Function constructor
+      const moduleExports = await new Promise((resolve, reject) => {
+        const callbackName = `xchangeeModule_${moduleName}_${Date.now()}`;
+        
+        const script = document.createElement('script');
+        script.textContent = `
+          (function() {
+            ${moduleCode}
+            window.${callbackName} = typeof module !== 'undefined' ? module : {};
+          })();
+        `;
+        
+        script.onload = () => {
+          const exports = window[callbackName] || {};
+          delete window[callbackName];
+          document.head.removeChild(script);
+          resolve(exports);
+        };
+        
+        script.onerror = (error) => {
+          delete window[callbackName];
+          document.head.removeChild(script);
+          reject(error);
+        };
+        
+        document.head.appendChild(script);
+      });
 
-      const moduleExports = moduleFunction();
       this.loadedModules.set(moduleName, moduleExports);
       
       console.log(`✅ RemoteLoader: Module "${moduleName}" loaded successfully`);
@@ -221,7 +282,7 @@ class RemoteLoader {
       console.error(`❌ RemoteLoader: Failed to load module "${moduleName}":`, error);
       return null;
     }
-  }
+  },
 
   /**
    * Check for code updates (can be called periodically)

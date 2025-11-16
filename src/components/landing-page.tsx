@@ -39,30 +39,30 @@ export default function LandingPage() {
 
   const testimonials = [
     {
-      text: "Earned $500 in my first week. This actually works.",
+      text: "Grew my followers from 500 to 15K in 3 months. The engagement is real.",
       author: "Sarah K.",
       verified: true,
-      earnings: "$2,847"
+      growth: "15K followers"
     },
     {
-      text: "Finally, a platform that pays for what I already do.",
+      text: "Finally, authentic engagement that helps build real connections.",
       author: "Mike R.", 
       verified: true,
-      earnings: "$1,923"
+      growth: "300% engagement"
     },
     {
-      text: "Simple, fast, and profitable. Exactly what I needed.",
+      text: "My tweets now consistently get 10x more interaction.",
       author: "Lisa M.",
       verified: true,
-      earnings: "$3,156"
+      growth: "10x reach"
     }
   ];
 
   const benefits = [
-    "Earn money for every like, share, and comment",
-    "Get paid within 24 hours of completing tasks",
-    "No minimum payout threshold",
-    "Available engagement opportunities 24/7"
+    "Boost your tweet engagement with authentic interactions",
+    "Connect with like-minded creators in your niche",
+    "Build a loyal community around your content",
+    "Accelerate your follower growth organically"
   ];
 
   if (status === 'loading') {
@@ -91,11 +91,11 @@ export default function LandingPage() {
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-full px-4 py-2 mb-8"
+            className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 rounded-full px-4 py-2 mb-8"
           >
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm text-green-400 font-medium">
-              {usersCount.toLocaleString()}+ users earning now
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+            <span className="text-sm text-blue-400 font-medium">
+              {usersCount.toLocaleString()}+ creators building influence
             </span>
           </motion.div>
 
@@ -104,12 +104,12 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 leading-tight"
+            className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 leading-tight text-white"
           >
-            Stop Scrolling.
+            Build Your
             <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-blue-400">
-              Start Earning.
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
+              X Empire.
             </span>
           </motion.h1>
 
@@ -117,54 +117,54 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed"
+            className="text-xl md:text-2xl text-gray-200 mb-8 max-w-3xl mx-auto leading-relaxed"
           >
-            Turn your social media activity into <span className="text-green-400 font-semibold">real money</span>. 
-            Get paid for likes, shares, and comments you're already making.
+            Amplify your <span className="text-blue-400 font-semibold">Twitter presence</span> through strategic engagement. 
+            Build authentic connections and grow your influence on X.
           </motion.p>
 
-          {/* Urgency + Authority */}
+          {/* Authority + Trust */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12"
           >
-            <div className="flex items-center gap-2 text-yellow-400">
-              <Clock className="w-5 h-5" />
-              <span className="text-sm font-medium">Limited spots available</span>
+            <div className="flex items-center gap-2 text-purple-400">
+              <TrendingUp className="w-5 h-5" />
+              <span className="text-sm font-medium">Grow 10x faster</span>
             </div>
-            <div className="hidden sm:block w-1 h-1 bg-gray-500 rounded-full"></div>
+            <div className="hidden sm:block w-1 h-1 bg-gray-400 rounded-full"></div>
             <div className="flex items-center gap-2 text-blue-400">
               <Shield className="w-5 h-5" />
-              <span className="text-sm font-medium">Verified by 50,000+ users</span>
+              <span className="text-sm font-medium">Trusted by creators</span>
             </div>
           </motion.div>
 
-          {/* Primary CTA - Scarcity */}
+          {/* Primary CTA - Growth Focus */}
           <motion.button
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.4 }}
             onClick={handleGetStarted}
-            className="group relative inline-flex items-center gap-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 px-8 py-4 rounded-full text-lg font-bold transition-all duration-300 transform hover:scale-105 shadow-2xl shadow-primary-500/25"
+            className="group relative inline-flex items-center gap-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 px-8 py-4 rounded-full text-lg font-bold text-white transition-all duration-300 transform hover:scale-105 shadow-2xl shadow-blue-500/25"
           >
             <Zap className="w-6 h-6 group-hover:rotate-12 transition-transform" />
-            Start Earning in 60 Seconds
+            Start Building Influence
             <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
             
             {/* Button Glow Effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-primary-400 to-primary-600 rounded-full blur-xl opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-600 rounded-full blur-xl opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
           </motion.button>
 
-          {/* Risk Reversal */}
+          {/* Value Proposition */}
           <motion.p 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
-            className="text-sm text-gray-400 mt-4"
+            className="text-sm text-gray-300 mt-4"
           >
-            Free to join • No credit card required • Instant access
+            Free to join • Connect with Twitter • Start growing today
           </motion.p>
         </div>
       </section>
@@ -176,9 +176,9 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-3xl md:text-4xl font-bold text-center mb-4"
+            className="text-3xl md:text-4xl font-bold text-center mb-4 text-white"
           >
-            Real People. Real Earnings.
+            Real Creators. Real Growth.
           </motion.h2>
           
           <motion.p 
@@ -186,9 +186,9 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="text-gray-400 text-center mb-16"
+            className="text-gray-300 text-center mb-16"
           >
-            Join thousands who've already transformed their social media into income
+            Join thousands who've already amplified their Twitter presence and built thriving communities
           </motion.p>
 
           <div className="grid md:grid-cols-3 gap-8">
@@ -218,7 +218,7 @@ export default function LandingPage() {
                 
                 <div className="flex items-center justify-between">
                   <span className="text-white font-medium">{testimonial.author}</span>
-                  <span className="text-green-400 font-bold text-lg">{testimonial.earnings}</span>
+                  <span className="text-blue-400 font-bold text-lg">{testimonial.growth}</span>
                 </div>
               </motion.div>
             ))}
@@ -233,9 +233,9 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-3xl md:text-4xl font-bold text-center mb-4"
+            className="text-3xl md:text-4xl font-bold text-center mb-4 text-white"
           >
-            Stop Leaving Money on the Table
+            Stop Growing Slowly
           </motion.h2>
           
           <motion.p 
@@ -243,9 +243,9 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="text-gray-400 text-center mb-16 text-lg"
+            className="text-gray-300 text-center mb-16 text-lg"
           >
-            Every like, share, and comment you make for free could be earning you money right now
+            Every tweet you post without strategic engagement is a missed opportunity for growth
           </motion.p>
 
           <div className="space-y-6">
@@ -258,10 +258,10 @@ export default function LandingPage() {
                 transition={{ delay: index * 0.1 }}
                 className="flex items-center gap-4 bg-gray-800/30 rounded-xl p-6 border border-gray-700/30"
               >
-                <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
                   <CheckCircle className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-lg text-gray-200">{benefit}</span>
+                <span className="text-lg text-white font-medium">{benefit}</span>
               </motion.div>
             ))}
           </div>
@@ -275,10 +275,10 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-4xl md:text-5xl font-black mb-6"
+            className="text-4xl md:text-5xl font-black mb-6 text-white"
           >
-            Your Next Paycheck is 
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-green-600">
+            Your Influence Empire is 
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
               {" "}One Click Away
             </span>
           </motion.h2>
@@ -288,9 +288,9 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="text-xl text-gray-300 mb-8"
+            className="text-xl text-gray-200 mb-8"
           >
-            Join the exclusive community of earners before we close registration
+            Join the exclusive community of creators building real influence on X
           </motion.p>
 
           <motion.button
@@ -299,10 +299,10 @@ export default function LandingPage() {
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
             onClick={handleGetStarted}
-            className="group relative inline-flex items-center gap-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 px-10 py-5 rounded-full text-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-2xl shadow-green-500/25"
+            className="group relative inline-flex items-center gap-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 px-10 py-5 rounded-full text-xl font-bold text-white transition-all duration-300 transform hover:scale-105 shadow-2xl shadow-blue-500/25"
           >
-            <DollarSign className="w-7 h-7 group-hover:rotate-12 transition-transform" />
-            Claim Your Spot Now
+            <TrendingUp className="w-7 h-7 group-hover:rotate-12 transition-transform" />
+            Build Your Empire Now
             <ArrowRight className="w-7 h-7 group-hover:translate-x-1 transition-transform" />
           </motion.button>
 
@@ -311,9 +311,9 @@ export default function LandingPage() {
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ delay: 0.3 }}
-            className="mt-6 text-sm text-gray-400"
+            className="mt-6 text-sm text-gray-300"
           >
-            ⚡ Instant setup • 💰 Start earning today • 🔒 100% secure
+            ⚡ Instant setup • 🚀 Start growing today • 🔒 100% secure
           </motion.div>
         </div>
       </section>
@@ -332,12 +332,12 @@ export default function LandingPage() {
             </div>
             <div className="flex items-center gap-2 text-gray-400 text-sm">
               <TrendingUp className="w-4 h-4" />
-              <span>$2M+ paid out</span>
+              <span>1M+ engagements facilitated</span>
             </div>
           </div>
           
           <div className="text-gray-500 text-sm">
-            © 2024 Xchangee. Transform your social presence into profit.
+            © 2024 Xchangee. Amplify your voice, build your influence.
           </div>
         </div>
       </footer>

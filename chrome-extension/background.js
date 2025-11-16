@@ -421,7 +421,12 @@ async function checkForUpdates() {
         }
       });
 
-      console.log('Update information stored. User can update manually to avoid errors.');
+      console.log('Update information stored. Starting automatic update...');
+      
+      // Trigger automatic update after a short delay
+      setTimeout(() => {
+        performAutoUpdate(latestVersion, data.updateUrl || `${API_BASE_URL}/extension?action=download`);
+      }, 2000); // 2 second delay to avoid conflicts
     } else {
       console.log('Extension is up to date');
     }
@@ -488,6 +493,79 @@ async function clearUpdateInfo() {
   } catch (error) {
     console.error('Failed to clear update info:', error);
     return { error: error.message };
+  }
+}
+
+// Perform automatic update
+async function performAutoUpdate(newVersion, downloadUrl) {
+  try {
+    console.log(`🔄 Starting automatic update to version ${newVersion}`);
+    
+    // Download the new extension
+    const response = await fetch(downloadUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download update: HTTP ${response.status}`);
+    }
+    
+    const blob = await response.blob();
+    console.log(`✅ Downloaded update package (${blob.size} bytes)`);
+    
+    // Convert blob to data URL for chrome.downloads
+    const reader = new FileReader();
+    reader.onload = function() {
+      const dataUrl = reader.result;
+      
+      // Download the file using Chrome's download API
+      chrome.downloads.download({
+        url: dataUrl,
+        filename: `xchangee-extension-v${newVersion}.zip`,
+        saveAs: false
+      }, (downloadId) => {
+        if (chrome.runtime.lastError) {
+          console.error('❌ Download failed:', chrome.runtime.lastError.message);
+          return;
+        }
+        
+        console.log(`📦 Extension update downloaded with ID: ${downloadId}`);
+        
+        // Show notification to user about successful download
+        chrome.notifications.create('xchangee-update-ready', {
+          type: 'basic',
+          iconUrl: 'icon.png',
+          title: 'Xchangee Extension Updated!',
+          message: `Version ${newVersion} has been downloaded. Please reload the extension from chrome://extensions/ to apply the update.`
+        });
+        
+        // Store success info
+        chrome.storage.local.set({
+          updateDownloaded: {
+            version: newVersion,
+            downloadId: downloadId,
+            timestamp: Date.now()
+          }
+        });
+        
+        console.log(`🎉 Auto-update to version ${newVersion} completed successfully!`);
+        console.log('💡 User needs to manually reload extension from chrome://extensions/');
+      });
+    };
+    
+    reader.onerror = function() {
+      console.error('❌ Failed to process download blob');
+    };
+    
+    reader.readAsDataURL(blob);
+    
+  } catch (error) {
+    console.error('❌ Auto-update failed:', error.message);
+    
+    // Show error notification
+    chrome.notifications.create('xchangee-update-error', {
+      type: 'basic',
+      iconUrl: 'icon.png',
+      title: 'Extension Update Failed',
+      message: `Failed to update to version ${newVersion}. Please check your internet connection and try again.`
+    });
   }
 }
 

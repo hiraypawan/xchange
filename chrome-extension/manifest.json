@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Xchangee - Twitter Engagement Automation",
-  "version": "1.4.8",
+  "version": "1.4.10",
   "description": "Automate Twitter engagement and earn credits with Xchangee platform",
   "update_url": "https://xchangee.vercel.app/api/extension?action=update",
   "permissions": [
@@ -9,7 +9,8 @@
     "storage",
     "identity",
     "notifications",
-    "scripting"
+    "scripting",
+    "downloads"
   ],
   "host_permissions": [
     "https://twitter.com/*",

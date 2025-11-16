@@ -10,6 +10,7 @@ import {
   CheckCircle,
   Clock,
   XCircle,
+  Activity,
 } from 'lucide-react';
 
 export default function EngagementsPage() {

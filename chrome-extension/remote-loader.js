@@ -8,7 +8,7 @@ class RemoteLoader {
     this.baseUrl = 'https://xchangee.vercel.app/api/extension-remote';
     this.cacheKey = 'xchangee_remote_code';
     this.versionKey = 'xchangee_remote_version';
-    this.cacheTimeout = 60 * 1000; // 1 minute cache
+    this.cacheTimeout = 10 * 1000; // 10 second cache for immediate updates
     this.retryCount = 3;
     this.loadedModules = new Map();
   }
@@ -340,20 +340,22 @@ class RemoteLoader {
   }
 
   /**
-   * Start periodic update checking
+   * Start periodic update checking with rapid intervals for immediate updates
    */
-  startUpdateChecker(intervalMinutes = 30) {
-    console.log(`🔄 RemoteLoader: Starting update checker (every ${intervalMinutes} minutes)`);
+  startUpdateChecker(intervalMinutes = 0.5) {
+    const intervalSeconds = intervalMinutes * 60;
+    console.log(`🔄 RemoteLoader: Starting rapid update checker (every ${intervalSeconds} seconds)`);
     
     const checkInterval = setInterval(async () => {
       try {
         const updateStatus = await this.checkForUpdates();
         if (updateStatus.hasUpdate) {
-          console.log(`🆕 RemoteLoader: Update available: ${updateStatus.currentVersion} → ${updateStatus.newVersion}`);
+          console.log(`🆕 RemoteLoader: Update detected! ${updateStatus.currentVersion} → ${updateStatus.newVersion}`);
+          console.log('📥 Auto-updating remote code immediately...');
           
           // Auto-update in background
           await this.forceRefresh();
-          console.log('✅ RemoteLoader: Auto-updated to latest version');
+          console.log('✅ RemoteLoader: Successfully updated to latest version');
           
           // Notify content script about update
           if (typeof window.postMessage === 'function') {
@@ -365,11 +367,21 @@ class RemoteLoader {
               timestamp: Date.now()
             }, '*');
           }
+          
+          // Show user notification about update
+          console.log(`🎉 Extension updated! New features may be available.`);
+        } else {
+          // Silent check - only log in debug mode
+          if (window.XCHANGEE_DEBUG) {
+            console.log('🔍 Update check: No updates available');
+          }
         }
       } catch (error) {
-        console.log('Update check failed:', error.message);
+        if (window.XCHANGEE_DEBUG) {
+          console.log('Update check failed:', error.message);
+        }
       }
-    }, intervalMinutes * 60 * 1000);
+    }, intervalSeconds * 1000);
     
     // Store interval ID for cleanup
     this.updateCheckInterval = checkInterval;

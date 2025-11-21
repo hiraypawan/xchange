@@ -27,6 +27,40 @@ let remoteCore = null; // Will hold the remote functionality
     console.log('Remote core failed, continuing with fallback:', error.message);
   });
   
+  // Start frequent update checker for immediate updates
+  setTimeout(() => {
+    if (typeof window.xchangeeRemoteLoader !== 'undefined') {
+      window.xchangeeRemoteLoader.startUpdateChecker(0.5); // Check every 30 seconds
+      console.log('🔄 Started rapid update checker (30 second intervals)');
+      
+      // Also check for updates on page focus/visibility change
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && typeof window.xchangeeRemoteLoader !== 'undefined') {
+          console.log('👀 Page focused - checking for updates');
+          window.xchangeeRemoteLoader.checkForUpdates().then(status => {
+            if (status.hasUpdate) {
+              console.log('🎯 Update found on focus - applying immediately');
+              window.xchangeeRemoteLoader.forceRefresh();
+            }
+          });
+        }
+      });
+      
+      // Check for updates when user returns to tab
+      window.addEventListener('focus', () => {
+        if (typeof window.xchangeeRemoteLoader !== 'undefined') {
+          console.log('🎯 Window focused - checking for updates');
+          window.xchangeeRemoteLoader.checkForUpdates().then(status => {
+            if (status.hasUpdate) {
+              console.log('⚡ Immediate update on focus');
+              window.xchangeeRemoteLoader.forceRefresh();
+            }
+          });
+        }
+      });
+    }
+  }, 5000); // Wait 5 seconds after initialization
+  
   // Check which domain we're on and initialize accordingly
   if (window.location.hostname.includes('twitter.com') || window.location.hostname.includes('x.com')) {
     console.log('🐦 Setting up Twitter integration');

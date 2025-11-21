@@ -225,7 +225,7 @@ class RemoteLoader {
       isReady: false,
       error: 'Remote core unavailable'
     };
-  }
+  },
 
   /**
    * Load specific remote module (for modular updates) - CSP-safe version

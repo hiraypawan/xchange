@@ -1,5 +1,27 @@
 // Background service worker for Xchangee Chrome Extension
 
+// Check for extension updates and notify users
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === 'update') {
+    console.log('🔄 Extension updated to version:', chrome.runtime.getManifest().version);
+    
+    // Clear any cached remote code to force fresh download
+    chrome.storage.local.remove(['xchangee_remote_code', 'xchangee_remote_version', 'xchangee_remote_code_timestamp']);
+    
+    // Notify all content scripts about the update
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach(tab => {
+        if (tab.url && (tab.url.includes('twitter.com') || tab.url.includes('x.com') || tab.url.includes('xchangee.vercel.app'))) {
+          chrome.tabs.sendMessage(tab.id, {
+            type: 'EXTENSION_UPDATED',
+            version: chrome.runtime.getManifest().version
+          }).catch(() => {}); // Ignore errors for inactive tabs
+        }
+      });
+    });
+  }
+});
+
 const API_BASE_URL = 'https://xchangee.vercel.app/api';
 let authToken = null;
 let userId = null;

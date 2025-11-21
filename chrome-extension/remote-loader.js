@@ -315,14 +315,77 @@ class RemoteLoader {
   async forceRefresh() {
     console.log('🔄 RemoteLoader: Force refreshing remote code...');
     
-    // Clear cache
+    // Clear cache from both localStorage and chrome.storage
     localStorage.removeItem(this.cacheKey);
     localStorage.removeItem(this.versionKey);
     localStorage.removeItem(`${this.cacheKey}_timestamp`);
+    
+    // Also clear from chrome storage if available
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      try {
+        await chrome.storage.local.remove([
+          'xchangee_remote_code', 
+          'xchangee_remote_version', 
+          'xchangee_remote_code_timestamp'
+        ]);
+      } catch (error) {
+        console.log('Failed to clear chrome storage:', error.message);
+      }
+    }
+    
     this.loadedModules.clear();
     
     // Load fresh code
     return await this.loadRemoteCore();
+  }
+
+  /**
+   * Start periodic update checking
+   */
+  startUpdateChecker(intervalMinutes = 30) {
+    console.log(`🔄 RemoteLoader: Starting update checker (every ${intervalMinutes} minutes)`);
+    
+    const checkInterval = setInterval(async () => {
+      try {
+        const updateStatus = await this.checkForUpdates();
+        if (updateStatus.hasUpdate) {
+          console.log(`🆕 RemoteLoader: Update available: ${updateStatus.currentVersion} → ${updateStatus.newVersion}`);
+          
+          // Auto-update in background
+          await this.forceRefresh();
+          console.log('✅ RemoteLoader: Auto-updated to latest version');
+          
+          // Notify content script about update
+          if (typeof window.postMessage === 'function') {
+            window.postMessage({
+              type: 'XCHANGEE_REMOTE_UPDATED',
+              source: 'remote-loader',
+              oldVersion: updateStatus.currentVersion,
+              newVersion: updateStatus.newVersion,
+              timestamp: Date.now()
+            }, '*');
+          }
+        }
+      } catch (error) {
+        console.log('Update check failed:', error.message);
+      }
+    }, intervalMinutes * 60 * 1000);
+    
+    // Store interval ID for cleanup
+    this.updateCheckInterval = checkInterval;
+    
+    return checkInterval;
+  }
+
+  /**
+   * Stop periodic update checking
+   */
+  stopUpdateChecker() {
+    if (this.updateCheckInterval) {
+      clearInterval(this.updateCheckInterval);
+      this.updateCheckInterval = null;
+      console.log('🛑 RemoteLoader: Update checker stopped');
+    }
   }
 
   /**

@@ -431,7 +431,9 @@ async function announceExtensionPresence() {
 
 // Handle messages from background script
 function handleMessage(request, sender, sendResponse) {
-  console.log('📨 Background script message:', request.type);
+  if (window.XCHANGEE_DEBUG) {
+    console.log('📨 Background script message:', request.type);
+  }
   
   switch (request.type) {
     case 'EXTENSION_HEARTBEAT':
@@ -443,6 +445,31 @@ function handleMessage(request, sender, sendResponse) {
         isAuthenticated: request.isAuthenticated,
         userId: request.userId
       }, '*');
+      sendResponse({ success: true });
+      break;
+      
+    case 'EXTENSION_UPDATED':
+      console.log('🔄 Extension updated, forcing remote code refresh');
+      
+      // Force refresh remote core
+      if (typeof window.xchangeeRemoteLoader !== 'undefined') {
+        window.xchangeeRemoteLoader.forceRefresh().then(() => {
+          console.log('✅ Remote code refreshed after extension update');
+          // Reinitialize with new code
+          initializeRemoteCore();
+        }).catch(error => {
+          console.log('⚠️ Remote code refresh failed:', error.message);
+        });
+      }
+      
+      // Notify website about extension update
+      window.postMessage({
+        type: 'XCHANGEE_EXTENSION_UPDATED',
+        source: 'extension',
+        version: request.version,
+        timestamp: Date.now()
+      }, '*');
+      
       sendResponse({ success: true });
       break;
       

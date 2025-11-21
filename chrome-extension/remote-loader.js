@@ -187,23 +187,22 @@ class RemoteLoader {
   }
 
   /**
-   * Execute remote code using eval (CSP permissive approach)
+   * Execute remote code without external dependencies (direct execution)
    */
   async executeRemoteCode(code) {
     try {
-      console.log('🔄 RemoteLoader: Executing remote code via eval...');
+      console.log('🔄 RemoteLoader: Executing remote code directly...');
       
       return new Promise((resolve, reject) => {
         const callbackName = `xchangeeRemoteInit_${Date.now()}`;
         
         try {
-          // Create a safe execution environment
+          // Execute code directly in current context
           const wrappedCode = `
-            (function() {
+            (() => {
               try {
                 ${code}
                 
-                // Call the callback when ready
                 if (typeof initXchangeeCore === 'function') {
                   console.log('🔄 RemoteLoader: Remote code loaded, initializing...');
                   
@@ -227,24 +226,22 @@ class RemoteLoader {
             })();
           `;
           
-          // Execute the code using eval (works with CSP unsafe-eval)
-          eval(wrappedCode);
+          // Use Function constructor instead of eval for better compatibility
+          const executeFunction = new Function(wrappedCode);
+          executeFunction();
           
           // Check if initialization completed
           const checkReady = () => {
             if (window[callbackName + '_ready']) {
               const result = window[callbackName + '_result'];
-              // Cleanup
               delete window[callbackName + '_result'];
               delete window[callbackName + '_ready'];
               resolve(result);
             } else if (window[callbackName + '_error']) {
               const error = window[callbackName + '_error'];
-              // Cleanup
               delete window[callbackName + '_error'];
               reject(error);
             } else {
-              // Keep checking
               setTimeout(checkReady, 100);
             }
           };
@@ -252,7 +249,7 @@ class RemoteLoader {
           setTimeout(checkReady, 100);
           
         } catch (error) {
-          console.error('❌ RemoteLoader: Eval execution failed:', error);
+          console.error('❌ RemoteLoader: Direct execution failed:', error);
           reject(error);
         }
       });
@@ -296,13 +293,13 @@ class RemoteLoader {
 
       const moduleCode = await response.text();
       
-      // Use eval for module loading (CSP permissive)
+      // Use Function constructor for module loading
       const moduleExports = await new Promise((resolve, reject) => {
         const callbackName = `xchangeeModule_${moduleName}_${Date.now()}`;
         
         try {
           const wrappedModuleCode = `
-            (function() {
+            (() => {
               try {
                 ${moduleCode}
                 window.${callbackName} = typeof module !== 'undefined' ? module : {};
@@ -312,8 +309,9 @@ class RemoteLoader {
             })();
           `;
           
-          // Execute module code using eval
-          eval(wrappedModuleCode);
+          // Execute module code using Function constructor
+          const moduleFunction = new Function(wrappedModuleCode);
+          moduleFunction();
           
           if (window[callbackName + '_error']) {
             const error = window[callbackName + '_error'];

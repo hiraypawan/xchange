@@ -37,7 +37,7 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' chrome-extension:",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' chrome-extension:",
               "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' chrome-extension:",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",

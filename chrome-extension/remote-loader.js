@@ -187,70 +187,60 @@ class RemoteLoader {
   }
 
   /**
-   * Execute remote code using CSP-compliant blob URLs
+   * Execute remote code using eval (CSP permissive approach)
    */
   async executeRemoteCode(code) {
     try {
-      console.log('🔄 RemoteLoader: Executing remote code via blob URL...');
+      console.log('🔄 RemoteLoader: Executing remote code via eval...');
       
       return new Promise((resolve, reject) => {
-        // Create a unique callback name
         const callbackName = `xchangeeRemoteInit_${Date.now()}`;
         
-        // Prepare the code with proper callback
-        const wrappedCode = `
-          (function() {
-            try {
-              ${code}
-              
-              // Call the callback when ready
-              if (typeof initXchangeeCore === 'function') {
-                console.log('🔄 RemoteLoader: Remote code loaded, initializing...');
+        try {
+          // Create a safe execution environment
+          const wrappedCode = `
+            (function() {
+              try {
+                ${code}
                 
-                try {
-                  const result = initXchangeeCore();
-                  window.${callbackName}_result = result;
-                  window.${callbackName}_ready = true;
-                  console.log('✅ RemoteLoader: Remote core initialized successfully');
-                } catch (error) {
-                  window.${callbackName}_error = error;
-                  console.error('❌ RemoteLoader: Remote core init failed:', error);
+                // Call the callback when ready
+                if (typeof initXchangeeCore === 'function') {
+                  console.log('🔄 RemoteLoader: Remote code loaded, initializing...');
+                  
+                  try {
+                    const result = initXchangeeCore();
+                    window.${callbackName}_result = result;
+                    window.${callbackName}_ready = true;
+                    console.log('✅ RemoteLoader: Remote core initialized successfully');
+                  } catch (error) {
+                    window.${callbackName}_error = error;
+                    console.error('❌ RemoteLoader: Remote core init failed:', error);
+                  }
+                } else {
+                  window.${callbackName}_error = new Error('initXchangeeCore function not found');
+                  console.error('❌ RemoteLoader: initXchangeeCore function not found in remote code');
                 }
-              } else {
-                window.${callbackName}_error = new Error('initXchangeeCore function not found');
-                console.error('❌ RemoteLoader: initXchangeeCore function not found in remote code');
+              } catch (error) {
+                window.${callbackName}_error = error;
+                console.error('❌ RemoteLoader: Code execution failed:', error);
               }
-            } catch (error) {
-              window.${callbackName}_error = error;
-              console.error('❌ RemoteLoader: Code execution failed:', error);
-            }
-          })();
-        `;
-        
-        // Create blob URL for CSP compliance
-        const blob = new Blob([wrappedCode], { type: 'application/javascript' });
-        const blobUrl = URL.createObjectURL(blob);
-        
-        // Create and inject script element with blob URL
-        const script = document.createElement('script');
-        script.src = blobUrl;
-        script.onload = () => {
-          // Clean up blob URL
-          URL.revokeObjectURL(blobUrl);
+            })();
+          `;
+          
+          // Execute the code using eval (works with CSP unsafe-eval)
+          eval(wrappedCode);
           
           // Check if initialization completed
           const checkReady = () => {
             if (window[callbackName + '_ready']) {
               const result = window[callbackName + '_result'];
               // Cleanup
-              document.head.removeChild(script);
               delete window[callbackName + '_result'];
               delete window[callbackName + '_ready'];
               resolve(result);
             } else if (window[callbackName + '_error']) {
               const error = window[callbackName + '_error'];
               // Cleanup
-              document.head.removeChild(script);
               delete window[callbackName + '_error'];
               reject(error);
             } else {
@@ -260,18 +250,11 @@ class RemoteLoader {
           };
           
           setTimeout(checkReady, 100);
-        };
-        
-        script.onerror = (error) => {
-          console.error('❌ RemoteLoader: Script loading failed:', error);
-          URL.revokeObjectURL(blobUrl);
-          document.head.removeChild(script);
-          delete window[callbackName + '_error'];
-          reject(new Error('Script loading failed'));
-        };
-        
-        // Inject the script
-        document.head.appendChild(script);
+          
+        } catch (error) {
+          console.error('❌ RemoteLoader: Eval execution failed:', error);
+          reject(error);
+        }
       });
 
     } catch (error) {
@@ -313,51 +296,37 @@ class RemoteLoader {
 
       const moduleCode = await response.text();
       
-      // Use blob URL for CSP compliance
+      // Use eval for module loading (CSP permissive)
       const moduleExports = await new Promise((resolve, reject) => {
         const callbackName = `xchangeeModule_${moduleName}_${Date.now()}`;
         
-        const wrappedModuleCode = `
-          (function() {
-            try {
-              ${moduleCode}
-              window.${callbackName} = typeof module !== 'undefined' ? module : {};
-            } catch (error) {
-              window.${callbackName}_error = error;
-            }
-          })();
-        `;
-        
-        const blob = new Blob([wrappedModuleCode], { type: 'application/javascript' });
-        const blobUrl = URL.createObjectURL(blob);
-        
-        const script = document.createElement('script');
-        script.src = blobUrl;
-        
-        script.onload = () => {
-          URL.revokeObjectURL(blobUrl);
+        try {
+          const wrappedModuleCode = `
+            (function() {
+              try {
+                ${moduleCode}
+                window.${callbackName} = typeof module !== 'undefined' ? module : {};
+              } catch (error) {
+                window.${callbackName}_error = error;
+              }
+            })();
+          `;
+          
+          // Execute module code using eval
+          eval(wrappedModuleCode);
           
           if (window[callbackName + '_error']) {
             const error = window[callbackName + '_error'];
             delete window[callbackName + '_error'];
-            document.head.removeChild(script);
             reject(error);
           } else {
             const exports = window[callbackName] || {};
             delete window[callbackName];
-            document.head.removeChild(script);
             resolve(exports);
           }
-        };
-        
-        script.onerror = (error) => {
-          URL.revokeObjectURL(blobUrl);
-          delete window[callbackName];
-          document.head.removeChild(script);
+        } catch (error) {
           reject(error);
-        };
-        
-        document.head.appendChild(script);
+        }
       });
 
       this.loadedModules.set(moduleName, moduleExports);

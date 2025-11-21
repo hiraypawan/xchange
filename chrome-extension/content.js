@@ -90,6 +90,12 @@ function initializeFallbackCore() {
 // Try to initialize remote core functionality (optional enhancement)
 async function initializeRemoteCore() {
   try {
+    // Check extension context before attempting remote loading
+    if (typeof chrome !== 'undefined' && chrome.runtime && !chrome.runtime.id) {
+      console.log('⚠️ Extension context invalid, keeping fallback core');
+      return;
+    }
+    
     console.log('🚀 Attempting to load remote core...');
     
     // Wait for remote loader to be available (shorter timeout)
@@ -114,12 +120,18 @@ async function initializeRemoteCore() {
     if (newRemoteCore && newRemoteCore.isReady) {
       remoteCore = newRemoteCore; // Replace fallback with real core
       console.log(`✅ Remote core loaded successfully (v${remoteCore.version})`);
+    } else if (newRemoteCore) {
+      // Use the remote core even if not fully ready (might be fallback)
+      remoteCore = newRemoteCore;
+      console.log(`📦 Using remote core (v${remoteCore.version}) - may be fallback mode`);
     } else {
-      console.warn('⚠️ Remote core loaded but not ready, keeping fallback');
+      console.log('⚠️ Remote core not available, keeping fallback');
     }
     
   } catch (error) {
-    console.log('Remote core initialization failed, using fallback:', error.message);
+    if (window.XCHANGEE_DEBUG) {
+      console.log('Remote core initialization failed, using fallback:', error.message);
+    }
     // Keep using fallback core
   }
 }

@@ -19,30 +19,65 @@ class RemoteLoader {
   async loadRemoteCore() {
     console.log('🚀 RemoteLoader: Starting remote core loading...');
     
+    // Check extension context first
+    if (typeof chrome !== 'undefined' && chrome.runtime && !chrome.runtime.id) {
+      console.log('⚠️ RemoteLoader: Extension context invalid, using fallback immediately');
+      return this.loadFallbackCore();
+    }
+    
     try {
-      // Try to load from server first
+      // Try cached version first for speed
+      const cachedCode = await this.getCachedCode();
+      if (cachedCode) {
+        console.log('⚡ RemoteLoader: Using cached code for immediate startup');
+        try {
+          const result = await this.executeRemoteCode(cachedCode);
+          // Check for updates in background
+          this.checkForUpdatesInBackground();
+          return result;
+        } catch (cacheError) {
+          console.log('⚠️ RemoteLoader: Cached code failed, trying server...');
+        }
+      }
+
+      // Try to load from server
       const remoteCode = await this.fetchRemoteCode();
       if (remoteCode) {
         console.log('✅ RemoteLoader: Loaded fresh code from server');
         return await this.executeRemoteCode(remoteCode);
       }
 
-      // Fallback to cached version
-      console.log('⚠️ RemoteLoader: Server unavailable, trying cached version...');
-      const cachedCode = await this.getCachedCode();
-      if (cachedCode) {
-        console.log('✅ RemoteLoader: Using cached code as fallback');
-        return await this.executeRemoteCode(cachedCode);
-      }
-
       throw new Error('No remote code available (server down + no cache)');
       
     } catch (error) {
-      console.error('❌ RemoteLoader: Failed to load remote code:', error);
+      if (window.XCHANGEE_DEBUG) {
+        console.error('❌ RemoteLoader: Failed to load remote code:', error);
+      }
       
       // Ultimate fallback - basic functionality
       return this.loadFallbackCore();
     }
+  }
+
+  /**
+   * Check for updates in background without blocking startup
+   */
+  async checkForUpdatesInBackground() {
+    setTimeout(async () => {
+      try {
+        const updateStatus = await this.checkForUpdates();
+        if (updateStatus.hasUpdate) {
+          console.log(`🆕 Background update available: ${updateStatus.currentVersion} → ${updateStatus.newVersion}`);
+          // Silently update in background
+          await this.forceRefresh();
+        }
+      } catch (error) {
+        // Silent failure for background updates
+        if (window.XCHANGEE_DEBUG) {
+          console.log('Background update check failed:', error.message);
+        }
+      }
+    }, 2000); // Check after 2 seconds
   }
 
   /**
@@ -51,15 +86,30 @@ class RemoteLoader {
   async fetchRemoteCode() {
     for (let attempt = 1; attempt <= this.retryCount; attempt++) {
       try {
-        console.log(`🌐 RemoteLoader: Fetching remote code (attempt ${attempt}/${this.retryCount})`);
+        console.log(`📦 RemoteLoader: Fetching remote code (attempt ${attempt}/${this.retryCount})`);
+        
+        // Check if extension context is still valid before making requests
+        if (typeof chrome !== 'undefined' && chrome.runtime && !chrome.runtime.id) {
+          throw new Error('Extension context invalidated');
+        }
+        
+        // Prepare headers safely
+        let headers = {
+          'Cache-Control': 'no-cache'
+        };
+        
+        // Only add extension version if chrome.runtime is available
+        try {
+          if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest) {
+            headers['X-Extension-Version'] = chrome.runtime.getManifest().version;
+          }
+        } catch (error) {
+          console.log('Could not get extension version, continuing without it');
+        }
         
         const response = await fetch(`${this.baseUrl}/core.js?v=${Date.now()}`, {
           method: 'GET',
-          headers: {
-            'Cache-Control': 'no-cache',
-            'X-Extension-Version': chrome.runtime.getManifest().version
-          },
-          timeout: 10000 // 10 second timeout
+          headers: headers
         });
 
         if (!response.ok) {
@@ -84,10 +134,18 @@ class RemoteLoader {
         return code;
 
       } catch (error) {
-        console.error(`❌ RemoteLoader: Attempt ${attempt} failed:`, error.message);
+        console.error(`📦 RemoteLoader: Attempt ${attempt} failed:`, error.message);
+        
+        // If extension context is invalidated, stop retrying
+        if (error.message.includes('Extension context invalidated') || 
+            error.message.includes('message port closed') ||
+            (typeof chrome !== 'undefined' && chrome.runtime && !chrome.runtime.id)) {
+          console.log('📦 RemoteLoader: Extension context invalidated, stopping retries');
+          return null;
+        }
         
         if (attempt === this.retryCount) {
-          console.error('❌ RemoteLoader: All retry attempts failed');
+          console.error('📦 RemoteLoader: All retry attempts failed');
           return null;
         }
         

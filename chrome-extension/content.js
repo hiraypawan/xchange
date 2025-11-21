@@ -36,6 +36,22 @@ async function initializeRemoteCore() {
   try {
     console.log('🚀 Initializing remote core...');
     
+    // Wait for remote loader to be available
+    if (typeof window.xchangeeRemoteLoader === 'undefined') {
+      console.log('⏳ Waiting for remote loader...');
+      
+      // Wait up to 5 seconds for remote loader
+      let attempts = 0;
+      while (typeof window.xchangeeRemoteLoader === 'undefined' && attempts < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+      
+      if (typeof window.xchangeeRemoteLoader === 'undefined') {
+        throw new Error('Remote loader not available after timeout');
+      }
+    }
+    
     // Load remote core from server
     remoteCore = await window.xchangeeRemoteLoader.loadRemoteCore();
     
@@ -47,7 +63,13 @@ async function initializeRemoteCore() {
     
   } catch (error) {
     console.error('❌ Failed to initialize remote core:', error);
-    // Continue with basic functionality
+    // Continue with basic functionality - create fallback
+    remoteCore = {
+      isReady: false,
+      version: 'fallback-1.0.0',
+      healthCheck: () => ({ status: 'fallback', message: 'Remote core unavailable' }),
+      setupDynamicObserver: null
+    };
   }
 }
 
@@ -238,13 +260,23 @@ async function getExtensionStatus() {
 
     console.log('Getting extension status...');
     
-    // Get current auth status with timeout
-    const authStatus = await Promise.race([
-      chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' }),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 3000)
-      )
-    ]);
+    // Get current auth status with timeout and error handling
+    let authStatus = null;
+    try {
+      authStatus = await Promise.race([
+        chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 3000)
+        )
+      ]);
+    } catch (error) {
+      if (error.message.includes('Extension context invalidated') || 
+          error.message.includes('message port closed')) {
+        throw new Error('Extension context invalidated');
+      }
+      console.warn('Auth status check failed:', error.message);
+      authStatus = { isAuthenticated: false };
+    }
     
     console.log('Extension status retrieved - Auth status:', authStatus);
     
@@ -256,7 +288,9 @@ async function getExtensionStatus() {
       userData: authStatus?.userData || null
     };
   } catch (error) {
-    if (error.message.includes('Extension context invalidated')) {
+    if (error.message.includes('Extension context invalidated') || 
+        error.message.includes('message port closed') ||
+        error.message.includes('receiving end does not exist')) {
       console.log('🔄 Extension was reloaded - stopping content script activities');
       stopContentScriptActivities();
       return {

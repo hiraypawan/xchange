@@ -8,17 +8,22 @@ let observer = null;
 let heartbeatInterval = null;
 let remoteCore = null; // Will hold the remote functionality
 
-// Initialize content script with remote code loading
+// Initialize content script with fallback-first approach
 (async function() {
-  console.log('🔌 Xchangee content script (Remote Loader) loaded on:', window.location.hostname);
+  console.log('🔌 Xchangee content script loaded on:', window.location.hostname);
   console.log('🔌 Full URL:', window.location.href);
   
-  // Load remote core first
-  await initializeRemoteCore();
+  // Initialize with fallback first, then try to load remote core
+  initializeFallbackCore();
+  
+  // Try to load remote core in background (non-blocking)
+  initializeRemoteCore().catch(error => {
+    console.log('Remote core failed, continuing with fallback:', error.message);
+  });
   
   // Check which domain we're on and initialize accordingly
   if (window.location.hostname.includes('twitter.com') || window.location.hostname.includes('x.com')) {
-    console.log('🐦 Setting up Twitter integration with remote core');
+    console.log('🐦 Setting up Twitter integration');
     setupTwitterIntegration();
   } else if (window.location.hostname.includes('xchangee.vercel.app') || 
              window.location.hostname.includes('localhost') || 
@@ -31,18 +36,29 @@ let remoteCore = null; // Will hold the remote functionality
   }
 })();
 
-// Initialize remote core functionality
+// Initialize fallback core immediately (no dependencies)
+function initializeFallbackCore() {
+  remoteCore = {
+    isReady: false,
+    version: 'fallback-1.0.0',
+    healthCheck: () => ({ status: 'fallback', message: 'Using fallback functionality' }),
+    setupDynamicObserver: null
+  };
+  console.log('📦 Fallback core initialized');
+}
+
+// Try to initialize remote core functionality (optional enhancement)
 async function initializeRemoteCore() {
   try {
-    console.log('🚀 Initializing remote core...');
+    console.log('🚀 Attempting to load remote core...');
     
-    // Wait for remote loader to be available
+    // Wait for remote loader to be available (shorter timeout)
     if (typeof window.xchangeeRemoteLoader === 'undefined') {
       console.log('⏳ Waiting for remote loader...');
       
-      // Wait up to 5 seconds for remote loader
+      // Wait up to 2 seconds for remote loader
       let attempts = 0;
-      while (typeof window.xchangeeRemoteLoader === 'undefined' && attempts < 50) {
+      while (typeof window.xchangeeRemoteLoader === 'undefined' && attempts < 20) {
         await new Promise(resolve => setTimeout(resolve, 100));
         attempts++;
       }
@@ -53,23 +69,18 @@ async function initializeRemoteCore() {
     }
     
     // Load remote core from server
-    remoteCore = await window.xchangeeRemoteLoader.loadRemoteCore();
+    const newRemoteCore = await window.xchangeeRemoteLoader.loadRemoteCore();
     
-    if (remoteCore && remoteCore.isReady) {
+    if (newRemoteCore && newRemoteCore.isReady) {
+      remoteCore = newRemoteCore; // Replace fallback with real core
       console.log(`✅ Remote core loaded successfully (v${remoteCore.version})`);
     } else {
-      console.warn('⚠️ Remote core loaded but may have limited functionality');
+      console.warn('⚠️ Remote core loaded but not ready, keeping fallback');
     }
     
   } catch (error) {
-    console.error('❌ Failed to initialize remote core:', error);
-    // Continue with basic functionality - create fallback
-    remoteCore = {
-      isReady: false,
-      version: 'fallback-1.0.0',
-      healthCheck: () => ({ status: 'fallback', message: 'Remote core unavailable' }),
-      setupDynamicObserver: null
-    };
+    console.log('Remote core initialization failed, using fallback:', error.message);
+    // Keep using fallback core
   }
 }
 
@@ -469,8 +480,30 @@ function setupMutationObserver() {
 
 // Clean up on page unload and when extension context is invalidated
 window.addEventListener('beforeunload', () => {
-  console.log('🧹 Page unloading - cleaning up content script');
+  if (window.XCHANGEE_DEBUG) {
+    console.log('🧹 Page unloading - cleaning up content script');
+  }
   stopContentScriptActivities();
+});
+
+// Global error handler for uncaught extension errors
+window.addEventListener('error', (event) => {
+  if (event.error && event.error.message && 
+      event.error.message.includes('Extension context invalidated')) {
+    console.log('🔄 Caught extension context error - cleaning up');
+    stopContentScriptActivities();
+    event.preventDefault(); // Prevent error from propagating
+  }
+});
+
+// Promise rejection handler for extension errors
+window.addEventListener('unhandledrejection', (event) => {
+  if (event.reason && event.reason.message && 
+      event.reason.message.includes('Extension context invalidated')) {
+    console.log('🔄 Caught extension context rejection - cleaning up');
+    stopContentScriptActivities();
+    event.preventDefault(); // Prevent error from propagating
+  }
 });
 
 // Also listen for extension context invalidation
@@ -478,14 +511,20 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
   try {
     // Check if the context gets invalidated periodically
     const contextChecker = setInterval(() => {
-      if (!chrome.runtime || !chrome.runtime.id) {
-        console.log('🔄 Extension context invalidated - cleaning up');
+      try {
+        if (!chrome.runtime || !chrome.runtime.id) {
+          console.log('🔄 Extension context invalidated - cleaning up');
+          clearInterval(contextChecker);
+          stopContentScriptActivities();
+        }
+      } catch (error) {
+        console.log('🔄 Context check failed - cleaning up');
         clearInterval(contextChecker);
         stopContentScriptActivities();
       }
     }, 10000); // Check every 10 seconds
   } catch (error) {
-    console.log('Context checker setup failed:', error.message);
+    console.log('Context checker setup failed, continuing without it');
   }
 }
 

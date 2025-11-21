@@ -1,5 +1,8 @@
 // Content script for Xchangee Chrome Extension - Remote Code Loader Version
 
+// Debug mode flag - set to true for development
+window.XCHANGEE_DEBUG = false;
+
 let isProcessing = false;
 let observer = null;
 let heartbeatInterval = null;
@@ -79,7 +82,10 @@ function initializeTwitter() {
 
 // Handle messages from the website
 async function handleWebsiteMessage(event) {
-  console.log('📨 Content script received message:', event.data);
+  // Reduced logging for production - only log non-heartbeat messages
+  if (event.data?.type !== 'heartbeat' && event.data?.type !== 'status') {
+    console.log('📨 Content script received message:', event.data);
+  }
   
   if (event.data?.type === 'XCHANGEE_EXTENSION_CHECK' && event.data?.source === 'website') {
     console.log('Handling extension check request');
@@ -337,7 +343,10 @@ async function announceExtensionPresence() {
       return;
     }
     
-    console.log('📊 Extension status:', status);
+    // Only log status in debug mode
+    if (window.XCHANGEE_DEBUG) {
+      console.log('📊 Extension status:', status);
+    }
     
     // Check context again before accessing manifest
     if (!chrome.runtime || !chrome.runtime.id) {
@@ -355,7 +364,10 @@ async function announceExtensionPresence() {
       timestamp: Date.now()
     }, '*');
     
-    console.log('✅ Extension heartbeat sent');
+    // Only log heartbeat in debug mode
+    if (window.XCHANGEE_DEBUG) {
+      console.log('✅ Extension heartbeat sent');
+    }
   } catch (error) {
     if (error.message.includes('Extension context invalidated')) {
       console.log('🔄 Extension context invalidated during heartbeat - cleaning up');

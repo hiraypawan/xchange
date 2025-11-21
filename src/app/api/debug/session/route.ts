@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
         id: session.user.id,
         name: session.user.name,
         email: session.user.email,
-        username: session.user.username
+        username: session.user.username,
+        twitterId: session.user.twitterId
       } : null,
       expires: session?.expires
     });
@@ -36,7 +37,8 @@ export async function GET(request: NextRequest) {
           id: session.user?.id,
           name: session.user?.name,
           email: session.user?.email,
-          username: session.user?.username
+          username: session.user?.username,
+          twitterId: session.user?.twitterId
         },
         expires: session.expires
       } : null,

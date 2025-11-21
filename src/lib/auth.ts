@@ -125,30 +125,38 @@ export const authOptions: NextAuthOptions = {
           // Fetch additional user data from our custom users collection
           const { db } = await connectToDatabase();
           
-          // First try to find by user ID (from NextAuth adapter)
+          // Try multiple methods to find the user
           let dbUser = null;
-          if (user.id) {
-            try {
-              dbUser = await db.collection('users').findOne({ 
-                _id: new ObjectId(user.id)
-              });
-            } catch (error) {
-              // If ObjectId conversion fails, try finding by twitterId or email
-              dbUser = await db.collection('users').findOne({
-                $or: [
-                  { twitterId: user.id },
-                  { email: session.user.email }
-                ]
-              });
-            }
-          } else {
-            // Fallback to email if no user.id
+          
+          // Try by email first (most reliable from Twitter OAuth)
+          if (session.user.email) {
             dbUser = await db.collection('users').findOne({ 
               email: session.user.email 
             });
           }
           
-          console.log('Session callback - dbUser found:', dbUser);
+          // Try by user.id if it looks like a twitterId
+          if (!dbUser && user.id) {
+            dbUser = await db.collection('users').findOne({ 
+              twitterId: user.id 
+            });
+          }
+          
+          // Try by ObjectId if user.id looks like MongoDB ObjectId
+          if (!dbUser && user.id && user.id.match(/^[0-9a-fA-F]{24}$/)) {
+            try {
+              dbUser = await db.collection('users').findOne({ 
+                _id: new ObjectId(user.id)
+              });
+            } catch (error) {
+              console.log('ObjectId lookup failed:', error);
+            }
+          }
+          
+          console.log('Session callback - search results:');
+          console.log('- Email search:', session.user.email, dbUser ? 'FOUND' : 'NOT FOUND');
+          console.log('- TwitterId search:', user.id, dbUser ? 'FOUND' : 'NOT FOUND');
+          console.log('- Final dbUser:', dbUser ? { id: dbUser._id, twitterId: dbUser.twitterId, credits: dbUser.credits } : 'NULL');
           
           if (dbUser) {
             session.user.id = dbUser._id.toString();

@@ -3,6 +3,12 @@
 // Debug mode flag - set to true for development
 window.XCHANGEE_DEBUG = false;
 
+// Prevent multiple initialization
+if (window.XCHANGEE_CONTENT_LOADED) {
+  console.log('🔄 Content script already loaded, skipping initialization');
+} else {
+  window.XCHANGEE_CONTENT_LOADED = true;
+
 let isProcessing = false;
 let observer = null;
 let heartbeatInterval = null;
@@ -529,3 +535,5 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
 }
 
 console.log('🚀 Xchangee content script fully loaded');
+
+} // End of initialization guard

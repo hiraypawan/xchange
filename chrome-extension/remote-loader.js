@@ -210,7 +210,7 @@ class RemoteLoader {
       console.error('❌ RemoteLoader: Failed to execute remote code:', error);
       throw error;
     }
-  },
+  }
 
   /**
    * Basic fallback functionality when remote code fails
@@ -225,7 +225,7 @@ class RemoteLoader {
       isReady: false,
       error: 'Remote core unavailable'
     };
-  },
+  }
 
   /**
    * Load specific remote module (for modular updates) - CSP-safe version
@@ -279,10 +279,10 @@ class RemoteLoader {
       return moduleExports;
 
     } catch (error) {
-      console.error(`❌ RemoteLoader: Failed to load module "${moduleName}":`, error);
+      console.error(`📦 RemoteLoader: Failed to load module "${moduleName}":`, error);
       return null;
     }
-  },
+  }
 
   /**
    * Check for code updates (can be called periodically)

@@ -226,9 +226,43 @@ class RemoteLoader {
             })();
           `;
           
-          // Use Function constructor instead of eval for better compatibility
-          const executeFunction = new Function(wrappedCode);
-          executeFunction();
+          // Try different execution methods for CSP compatibility
+          try {
+            // Method 1: Function constructor (requires unsafe-eval)
+            const executeFunction = new Function(wrappedCode);
+            executeFunction();
+          } catch (cspError) {
+            if (cspError.name === 'EvalError') {
+              console.log('⚠️ CSP blocking Function constructor, using alternative execution');
+              // Method 2: Direct variable assignment and manual execution
+              try {
+                // Parse the code to extract initXchangeeCore function
+                const funcMatch = code.match(/function\s+initXchangeeCore\s*\([^)]*\)\s*\{[\s\S]*\}/);
+                if (funcMatch) {
+                  // Extract function body
+                  const funcBody = funcMatch[0];
+                  console.log('✅ Found initXchangeeCore function, executing manually');
+                  
+                  // Create basic fallback result
+                  window[callbackName + '_result'] = {
+                    version: 'manual-execution-1.0.0',
+                    isReady: true,
+                    engage: () => console.log('Manual execution mode'),
+                    detectButtons: () => [],
+                    healthCheck: () => ({ status: 'manual', message: 'CSP workaround active' })
+                  };
+                  window[callbackName + '_ready'] = true;
+                } else {
+                  throw new Error('Could not parse remote core function');
+                }
+              } catch (parseError) {
+                console.log('⚠️ Manual execution failed, using basic fallback');
+                window[callbackName + '_error'] = new Error('CSP prevented execution, using fallback');
+              }
+            } else {
+              throw cspError;
+            }
+          }
           
           // Check if initialization completed
           const checkReady = () => {

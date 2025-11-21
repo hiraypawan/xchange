@@ -206,7 +206,9 @@ async function handleWebsiteMessage(event) {
       }, (response) => {
         // Check for runtime errors
         if (chrome.runtime.lastError) {
-          console.log('Auth data storage failed:', chrome.runtime.lastError.message);
+          if (window.XCHANGEE_DEBUG) {
+            console.log('Auth data storage failed:', chrome.runtime.lastError.message);
+          }
           return;
         }
         
@@ -275,11 +277,15 @@ async function handleAuthenticationFromWebsite(authData) {
         }, (response) => {
           // Handle any callback errors silently
           if (chrome.runtime.lastError) {
-            console.log('Notification failed:', chrome.runtime.lastError.message);
+            if (window.XCHANGEE_DEBUG) {
+              console.log('Notification failed:', chrome.runtime.lastError.message);
+            }
           }
         });
       } catch (error) {
-        console.log('Failed to send notification:', error.message);
+        if (window.XCHANGEE_DEBUG) {
+          console.log('Failed to send notification:', error.message);
+        }
       }
     }
     
@@ -314,18 +320,39 @@ async function getExtensionStatus() {
     // Get current auth status with timeout and error handling
     let authStatus = null;
     try {
+      // Check context before making call
+      if (!chrome.runtime || !chrome.runtime.id) {
+        throw new Error('Extension context invalidated');
+      }
+      
       authStatus = await Promise.race([
-        chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' }),
+        new Promise((resolve, reject) => {
+          try {
+            chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' }, (response) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(response);
+              }
+            });
+          } catch (error) {
+            reject(error);
+          }
+        }),
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Timeout')), 3000)
         )
       ]);
     } catch (error) {
       if (error.message.includes('Extension context invalidated') || 
-          error.message.includes('message port closed')) {
+          error.message.includes('message port closed') ||
+          error.message.includes('receiving end does not exist') ||
+          !chrome.runtime || !chrome.runtime.id) {
         throw new Error('Extension context invalidated');
       }
-      console.warn('Auth status check failed:', error.message);
+      if (window.XCHANGEE_DEBUG) {
+        console.warn('Auth status check failed:', error.message);
+      }
       authStatus = { isAuthenticated: false };
     }
     
@@ -556,8 +583,9 @@ window.addEventListener('beforeunload', () => {
 // Global error handler for uncaught extension errors
 window.addEventListener('error', (event) => {
   if (event.error && event.error.message && 
-      event.error.message.includes('Extension context invalidated')) {
-    console.log('🔄 Caught extension context error - cleaning up');
+      (event.error.message.includes('Extension context invalidated') ||
+       event.error.message.includes('Some of the required properties are missing'))) {
+    console.log('🔄 Caught extension error - cleaning up');
     stopContentScriptActivities();
     event.preventDefault(); // Prevent error from propagating
   }

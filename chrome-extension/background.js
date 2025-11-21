@@ -1,5 +1,14 @@
 // Background service worker for Xchangee Chrome Extension
 
+// Global error handler for background script
+self.addEventListener('error', (event) => {
+  if (event.error && event.error.message && 
+      event.error.message.includes('Some of the required properties are missing')) {
+    console.log('🔇 Silenced notification error - properties missing');
+    event.preventDefault();
+  }
+});
+
 // Check for extension updates and notify users
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'update') {

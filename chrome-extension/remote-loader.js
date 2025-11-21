@@ -5,12 +5,14 @@
 
 class RemoteLoader {
   constructor() {
-    this.baseUrl = 'https://xchangee.vercel.app/api/extension-remote';
+    // Use a more realistic base URL that matches your server structure
+    this.baseUrl = 'https://xchangee.vercel.app/api';
     this.cacheKey = 'xchangee_remote_code';
     this.versionKey = 'xchangee_remote_version';
     this.cacheTimeout = 10 * 1000; // 10 second cache for immediate updates
     this.retryCount = 3;
     this.loadedModules = new Map();
+    this.isServerAvailable = true; // Track server availability
   }
 
   /**
@@ -65,16 +67,45 @@ class RemoteLoader {
   async checkForUpdatesInBackground() {
     setTimeout(async () => {
       try {
+        // Check if server supports remote updates
+        const serverMode = localStorage.getItem(`${this.cacheKey}_server_mode`);
+        if (serverMode === 'local-only') {
+          if (window.XCHANGEE_DEBUG) {
+            console.log('ℹ️ RemoteLoader: Skipping background check - server in local-only mode');
+          }
+          return;
+        }
+
+        // Skip if we've already checked recently
+        const lastBackgroundCheck = localStorage.getItem(`${this.cacheKey}_last_bg_check`) || '0';
+        const timeSinceLastCheck = Date.now() - parseInt(lastBackgroundCheck);
+        
+        // Only check once every 15 minutes in background to reduce server load
+        if (timeSinceLastCheck < 15 * 60 * 1000) {
+          if (window.XCHANGEE_DEBUG) {
+            console.log('⏰ RemoteLoader: Skipping background check - too recent');
+          }
+          return;
+        }
+        
+        localStorage.setItem(`${this.cacheKey}_last_bg_check`, Date.now().toString());
+        
         const updateStatus = await this.checkForUpdates();
         if (updateStatus.hasUpdate) {
           console.log(`🆕 Background update available: ${updateStatus.currentVersion} → ${updateStatus.newVersion}`);
           // Silently update in background
           await this.forceRefresh();
+        } else if (window.XCHANGEE_DEBUG) {
+          console.log('📋 Background check: No updates available');
         }
       } catch (error) {
-        // Silent failure for background updates
+        // Silent failure for background updates with better error categorization
         if (window.XCHANGEE_DEBUG) {
-          console.log('Background update check failed:', error.message);
+          if (error.message.includes('Network unavailable') || error.message.includes('Failed to fetch')) {
+            console.log('🌐 Background update: Network unavailable');
+          } else {
+            console.log('⚠️ Background update check failed:', error.message);
+          }
         }
       }
     }, 2000); // Check after 2 seconds
@@ -107,7 +138,7 @@ class RemoteLoader {
           console.log('Could not get extension version, continuing without it');
         }
         
-        const response = await fetch(`${this.baseUrl}/core.js?v=${Date.now()}`, {
+        const response = await fetch(`${this.baseUrl}/extension/core.js?v=${Date.now()}`, {
           method: 'GET',
           headers: headers
         });
@@ -745,14 +776,80 @@ class RemoteLoader {
    */
   async checkForUpdates() {
     try {
-      const response = await fetch(`${this.baseUrl}/version`, {
-        method: 'HEAD'
-      });
-      
-      const serverVersion = response.headers.get('X-Code-Version');
+      // Check extension context first
+      if (typeof chrome !== 'undefined' && chrome.runtime && !chrome.runtime.id) {
+        console.log('⚠️ RemoteLoader: Extension context invalid, skipping update check');
+        return { hasUpdate: false, error: 'Extension context invalid' };
+      }
+
+      // Try multiple endpoints that might exist on your server
+      const endpoints = [
+        `${this.baseUrl}/health`,
+        `${this.baseUrl}/extension/version`, 
+        `${this.baseUrl}/user/stats`,
+        `${this.baseUrl}/status`
+      ];
+
+      let serverVersion = null;
+      let response = null;
+
+      // Try endpoints in order until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`🔍 RemoteLoader: Checking updates from ${endpoint}`);
+          
+          // Create compatible abort controller for timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+          
+          try {
+            response = await fetch(endpoint, {
+              method: 'HEAD',
+              headers: {
+                'Cache-Control': 'no-cache'
+              },
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+          } catch (fetchError) {
+            clearTimeout(timeoutId);
+            throw fetchError;
+          }
+
+          if (response.ok) {
+            // Try to get version from different header fields
+            serverVersion = response.headers.get('X-Code-Version') || 
+                          response.headers.get('X-Version') || 
+                          response.headers.get('ETag') ||
+                          response.headers.get('Last-Modified');
+            
+            if (serverVersion) {
+              console.log(`✅ RemoteLoader: Got server version: ${serverVersion}`);
+              break;
+            }
+          }
+        } catch (endpointError) {
+          console.log(`⚠️ RemoteLoader: Endpoint ${endpoint} failed:`, endpointError.message);
+          continue; // Try next endpoint
+        }
+      }
+
+      // If no version info available, server doesn't support remote updates
+      if (!serverVersion) {
+        console.log('ℹ️ RemoteLoader: Server does not support remote updates - using local fallback mode');
+        this.isServerAvailable = false;
+        
+        // Mark that we've checked and no remote updates are available
+        const now = Date.now();
+        localStorage.setItem(`${this.cacheKey}_last_check`, now.toString());
+        localStorage.setItem(`${this.cacheKey}_server_mode`, 'local-only');
+        
+        return { hasUpdate: false, currentVersion: 'local-fallback', serverMode: 'local-only' };
+      }
+
       const cachedVersion = localStorage.getItem(this.versionKey);
       
-      if (serverVersion && serverVersion !== cachedVersion) {
+      if (serverVersion !== cachedVersion) {
         console.log(`🔄 RemoteLoader: Update available: ${cachedVersion} → ${serverVersion}`);
         return { hasUpdate: true, newVersion: serverVersion, currentVersion: cachedVersion };
       }
@@ -760,8 +857,17 @@ class RemoteLoader {
       return { hasUpdate: false, currentVersion: cachedVersion };
       
     } catch (error) {
-      console.error('❌ RemoteLoader: Failed to check for updates:', error);
-      return { hasUpdate: false, error: error.message };
+      // Handle different types of errors gracefully
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        console.log('🌐 RemoteLoader: Network unavailable, skipping update check');
+        return { hasUpdate: false, error: 'Network unavailable' };
+      } else if (error.name === 'AbortError') {
+        console.log('⏰ RemoteLoader: Update check timed out');
+        return { hasUpdate: false, error: 'Request timeout' };
+      } else {
+        console.error('❌ RemoteLoader: Failed to check for updates:', error);
+        return { hasUpdate: false, error: error.message };
+      }
     }
   }
 

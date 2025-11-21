@@ -8,6 +8,14 @@ const nextConfig = {
       'ton.twitter.com',
     ],
   },
+  experimental: {
+    // Suppress hydration warnings in development
+    suppressHydrationWarning: true,
+  },
+  compiler: {
+    // Remove console.logs in production
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
   async headers() {
     return [
       {

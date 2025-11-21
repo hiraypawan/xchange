@@ -4,6 +4,8 @@ import './globals.css';
 import { Providers } from '@/components/providers';
 import { Toaster } from '@/components/ui/toaster';
 import Header from '@/components/header';
+import { HydrationBoundary } from '@/components/hydration-boundary';
+import { ExtensionGuard } from '@/components/extension-guard';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -57,11 +59,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={inter.className} suppressHydrationWarning>
         <Providers>
-          <Header />
-          {children}
-          <Toaster />
+          <HydrationBoundary>
+            <ExtensionGuard />
+            <Header />
+            {children}
+            <Toaster />
+          </HydrationBoundary>
         </Providers>
       </body>
     </html>

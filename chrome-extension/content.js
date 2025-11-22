@@ -1302,12 +1302,12 @@ const dashboardObserver = new MutationObserver((mutations) => {
     if (mutation.addedNodes.length > 0) {
       mutation.addedNodes.forEach((node) => {
         if (node.nodeType === Node.ELEMENT_NODE) {
-          const element = node as Element;
+          const element = node;
           // Check if dashboard-specific elements are loaded
           if (element.querySelector && (
               element.querySelector('[data-extension-dropdown]') ||
-              element.textContent?.includes('Extension') ||
-              element.classList?.contains('dashboard')
+              element.textContent && element.textContent.includes('Extension') ||
+              element.classList && element.classList.contains('dashboard')
             )) {
             shouldNotify = true;
           }

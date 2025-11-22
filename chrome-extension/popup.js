@@ -83,41 +83,35 @@ async function loadUserData() {
 
 async function fetchFreshUserData() {
   try {
-    // Get current tab to access cookies
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    console.log('Fetching fresh user data...');
     
-    // Fetch fresh user stats from API
-    const response = await fetch('https://xchangee.vercel.app/api/user/stats', {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      }
+    // Use background script to make API call with proper permissions
+    const response = await chrome.runtime.sendMessage({
+      type: 'FETCH_USER_STATS'
     });
     
-    if (response.ok) {
-      const result = await response.json();
-      if (result.success && result.data) {
-        // Update user data with fresh stats
-        const freshUserData = {
-          ...currentUser,
-          credits: result.data.credits,
-          totalEarned: result.data.totalEarned,
-          totalSpent: result.data.totalSpent,
-          successRate: result.data.successRate
-        };
-        
-        // Update current user and storage
-        currentUser = freshUserData;
-        await chrome.storage.local.set({ userData: freshUserData });
-        
-        // Update UI with fresh data
-        updateUserInfo();
-        
-        console.log('Fresh user data loaded:', freshUserData.credits, 'credits');
-      }
+    console.log('Background script response:', response);
+    
+    if (response.success && response.data) {
+      // Update user data with fresh stats
+      const freshUserData = {
+        ...currentUser,
+        credits: response.data.credits,
+        totalEarned: response.data.totalEarned,
+        totalSpent: response.data.totalSpent,
+        successRate: response.data.successRate
+      };
+      
+      // Update current user and storage
+      currentUser = freshUserData;
+      await chrome.storage.local.set({ userData: freshUserData });
+      
+      // Update UI with fresh data
+      updateUserInfo();
+      
+      console.log('Fresh user data loaded:', freshUserData.credits, 'credits');
     } else {
-      console.warn('Failed to fetch fresh user data:', response.status);
+      console.warn('Failed to fetch fresh user data:', response.error || 'Unknown error');
     }
   } catch (error) {
     console.warn('Failed to fetch fresh user data:', error);

@@ -739,3 +739,158 @@ setInterval(() => {
   console.log('Service worker keepalive');
   sendHeartbeatToWebsite();
 }, 20000);
+
+// Handle messages from popup and content scripts
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('Background script received message:', request.type);
+  
+  switch (request.type) {
+    case 'GET_AUTH_STATUS':
+      handleGetAuthStatus(sendResponse);
+      break;
+    
+    case 'FETCH_USER_STATS':
+      handleFetchUserStats(sendResponse);
+      break;
+    
+    case 'GET_ENGAGEMENT_OPPORTUNITIES':
+      handleGetEngagementOpportunities(sendResponse);
+      break;
+    
+    case 'COMPLETE_ENGAGEMENT':
+      handleCompleteEngagement(request.data, sendResponse);
+      break;
+    
+    case 'START_AUTO_ENGAGE':
+      handleStartAutoEngage(sendResponse);
+      break;
+    
+    case 'STOP_AUTO_ENGAGE':
+      handleStopAutoEngage(sendResponse);
+      break;
+    
+    case 'LOGOUT':
+      handleLogout(sendResponse);
+      break;
+    
+    case 'UPDATE_SETTINGS':
+      handleUpdateSettings(request.settings, sendResponse);
+      break;
+    
+    default:
+      sendResponse({ success: false, error: 'Unknown message type' });
+      break;
+  }
+  
+  return true; // Keep channel open for async response
+});
+
+// Handler functions
+async function handleGetAuthStatus(sendResponse) {
+  try {
+    const data = await chrome.storage.local.get(['authToken', 'userId', 'userData']);
+    sendResponse({
+      success: true,
+      isAuthenticated: !!data.authToken,
+      userId: data.userId,
+      userData: data.userData || {}
+    });
+  } catch (error) {
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+async function handleFetchUserStats(sendResponse) {
+  try {
+    console.log('Fetching user stats from API...');
+    
+    // Get current auth data
+    const data = await chrome.storage.local.get(['authToken', 'userId']);
+    
+    if (!data.authToken) {
+      sendResponse({ success: false, error: 'Not authenticated' });
+      return;
+    }
+    
+    // Make API request with authentication
+    const response = await fetch('https://xchangee.vercel.app/api/user/stats', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${data.authToken}`,
+      },
+      credentials: 'include'
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log('User stats fetched successfully:', result);
+      sendResponse(result);
+    } else {
+      console.error('Failed to fetch user stats:', response.status, response.statusText);
+      sendResponse({ 
+        success: false, 
+        error: `HTTP ${response.status}: ${response.statusText}` 
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching user stats:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+async function handleGetEngagementOpportunities(sendResponse) {
+  try {
+    // TODO: Implement engagement opportunities fetching
+    sendResponse({ success: true, data: [] });
+  } catch (error) {
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+async function handleCompleteEngagement(engagementData, sendResponse) {
+  try {
+    // TODO: Implement engagement completion
+    sendResponse({ success: true });
+  } catch (error) {
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+async function handleStartAutoEngage(sendResponse) {
+  try {
+    // TODO: Implement auto-engage start
+    sendResponse({ success: true });
+  } catch (error) {
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+async function handleStopAutoEngage(sendResponse) {
+  try {
+    // TODO: Implement auto-engage stop
+    sendResponse({ success: true });
+  } catch (error) {
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+async function handleLogout(sendResponse) {
+  try {
+    await chrome.storage.local.clear();
+    authToken = null;
+    userId = null;
+    sendResponse({ success: true });
+  } catch (error) {
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+async function handleUpdateSettings(settings, sendResponse) {
+  try {
+    await chrome.storage.local.set({ settings });
+    sendResponse({ success: true });
+  } catch (error) {
+    sendResponse({ success: false, error: error.message });
+  }
+}

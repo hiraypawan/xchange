@@ -19,6 +19,7 @@ import {
   Menu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useRealTimeStats } from '@/hooks/use-real-time-stats';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -32,6 +33,7 @@ const navigation = [
 
 export default function DashboardSidebar() {
   const { data: session } = useSession();
+  const { stats, isLoading: isLoadingStats } = useRealTimeStats();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -72,7 +74,7 @@ export default function DashboardSidebar() {
               {session?.user?.name || session?.user?.username}
             </p>
             <p className="text-xs text-gray-500">
-              {session?.user?.credits || 0} credits
+              {isLoadingStats ? 'Loading...' : `${stats?.credits || 0} credits`}
             </p>
           </div>
         </div>

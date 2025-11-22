@@ -410,8 +410,8 @@ async function getExtensionStatus() {
 function setupXchangeeWebsiteIntegration() {
   console.log('🌐 Initializing Xchangee website integration');
   
-  // Listen for messages from background script
-  chrome.runtime.onMessage.addListener(handleMessage);
+  // Listen for messages from background script (handleMessage function removed - using popup handler instead)
+  // chrome.runtime.onMessage.addListener(handleMessage); // DISABLED - conflicts with popup handler
   
   // Listen for messages from website for extension detection
   window.addEventListener('message', handleWebsiteMessage);
@@ -639,16 +639,7 @@ console.log('🚀 Xchangee content script fully loaded');
 
 } // End of initialization guard
 
-// Add a clear indicator that content script is loaded
-console.log('🚀 Xchangee content script FULLY LOADED on:', window.location.href);
-console.log('🔧 Content script ready to receive messages from popup');
-
-// Test the message handler immediately
-setTimeout(() => {
-  console.log('📡 Content script self-test: Message handler should be active now');
-}, 1000);
-
-// Message handler for popup communication
+// PRIORITY: Register popup message handler FIRST to avoid conflicts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Content script received message from popup:', request.type, 'on URL:', window.location.href);
   
@@ -667,6 +658,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return false;
   }
 });
+
+// Add startup logging after message handler is registered
+console.log('🚀 Xchangee content script FULLY LOADED on:', window.location.href);
+console.log('🔧 Content script ready to receive messages from popup');
+console.log('✅ Popup message handler registered FIRST to avoid conflicts');
+
+// Test the message handler immediately
+setTimeout(() => {
+  console.log('📡 Content script self-test: Message handler should be active now');
+}, 1000);
 
 // Handler to get user stats from the website
 async function handleGetUserStats(sendResponse) {

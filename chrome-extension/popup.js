@@ -54,24 +54,64 @@ async function connectToContentScript() {
   try {
     console.log('📡 POPUP: Connecting to content script...');
     
-    // Request initial popup data
-    const response = await chrome.tabs.sendMessage(currentTabId, {
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Connection timeout')), 5000)
+    );
+    
+    const messagePromise = chrome.tabs.sendMessage(currentTabId, {
       type: 'POPUP_REQUEST_DATA',
       timestamp: Date.now()
     });
     
+    const response = await Promise.race([messagePromise, timeoutPromise]);
+    
     if (response && response.success) {
       console.log('✅ POPUP: Connected successfully');
-      updateUI(response.data);
-      hideLoading();
+      
+      // Validate response data before using
+      if (response.data && isValidPopupData(response.data)) {
+        updateUI(response.data);
+        hideLoading();
+      } else {
+        console.log('❌ Invalid or dummy data received, showing auth required');
+        showAuthRequired();
+        hideLoading();
+      }
     } else {
       throw new Error('Failed to connect to content script');
     }
     
   } catch (error) {
     console.error('❌ POPUP: Connection failed:', error);
-    showError('Please refresh the page and try again');
+    
+    if (error.message.includes('Extension context invalidated')) {
+      showError('Extension needs to be reloaded. Please reload the extension and refresh this page.');
+    } else if (error.message.includes('Receiving end does not exist')) {
+      showError('Please refresh the page and try again.');
+    } else {
+      showError('Connection failed. Please refresh the page and try again.');
+    }
   }
+}
+
+function isValidPopupData(data) {
+  // Check if the data contains valid user information (not dummy data)
+  if (!data) return false;
+  
+  if (data.isAuthenticated && data.user) {
+    // Reject dummy/fake user data
+    if (data.user.name === 'User' || 
+        data.user.name === 'Unknown' || 
+        data.user.name === 'Test User' ||
+        !data.user.name || 
+        data.user.name.length < 2) {
+      console.log('❌ Rejecting dummy user data:', data.user.name);
+      return false;
+    }
+  }
+  
+  return true;
 }
 
 function setupEventListeners() {
@@ -345,11 +385,19 @@ function showNotSupportedMessage() {
           <h1>Xchangee</h1>
         </div>
         <p>Please visit Twitter/X or Xchangee website to use this extension</p>
-        <button onclick="chrome.tabs.create({url: 'https://twitter.com'})" class="btn-primary">
+        <button id="open-twitter-btn" class="btn-primary">
           Open Twitter
         </button>
       </div>
     `;
+    
+    // Add event listener for the button
+    const openTwitterBtn = document.getElementById('open-twitter-btn');
+    if (openTwitterBtn) {
+      openTwitterBtn.addEventListener('click', () => {
+        chrome.tabs.create({url: 'https://twitter.com'});
+      });
+    }
   }
 }
 
@@ -365,11 +413,19 @@ function showError(message) {
           <h1>Xchangee</h1>
         </div>
         <p class="error-message">${message}</p>
-        <button onclick="window.location.reload()" class="btn-primary">
+        <button id="try-again-btn" class="btn-primary">
           Try Again
         </button>
       </div>
     `;
+    
+    // Add event listener for the button
+    const tryAgainBtn = document.getElementById('try-again-btn');
+    if (tryAgainBtn) {
+      tryAgainBtn.addEventListener('click', () => {
+        window.location.reload();
+      });
+    }
   }
 }
 

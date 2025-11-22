@@ -637,14 +637,22 @@ async function updateOpportunities() {
 function sendPopupUpdate() {
   // Send update to popup if it's open
   try {
-    chrome.runtime.sendMessage({
-      type: 'POPUP_UPDATE_DATA',
-      data: popupData
-    }).catch(() => {
-      // Popup might not be open, ignore
-    });
+    if (chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({
+        type: 'POPUP_UPDATE_DATA',
+        data: popupData
+      }).catch((error) => {
+        // Popup might not be open or extension context invalidated, ignore
+        if (!error.message.includes('Extension context invalidated')) {
+          console.log('Could not send popup update:', error.message);
+        }
+      });
+    }
   } catch (error) {
-    // Popup might not be open, ignore
+    // Extension context might be invalidated, ignore
+    if (!error.message.includes('Extension context invalidated')) {
+      console.log('Error sending popup update:', error.message);
+    }
   }
 }
 
@@ -763,12 +771,21 @@ updatePopupData();
 // Notify dashboard immediately and periodically
 notifyDashboardConnection();
 
-// Update popup data periodically
+// Update popup data periodically with error handling
 setInterval(() => {
-  updatePopupData();
-  notifyDashboardConnection(); // Keep dashboard updated
-  if (popupData.stats.isAutoEngageActive) {
-    sendPopupUpdate(); // Send updates to popup when auto-engage is active
+  try {
+    updatePopupData();
+    notifyDashboardConnection(); // Keep dashboard updated
+    if (popupData.stats.isAutoEngageActive) {
+      sendPopupUpdate(); // Send updates to popup when auto-engage is active
+    }
+  } catch (error) {
+    if (error.message && error.message.includes('Extension context invalidated')) {
+      console.log('⚠️ Extension context invalidated, stopping periodic updates');
+      clearInterval(this);
+    } else {
+      console.error('Error in periodic update:', error);
+    }
   }
 }, 30000); // Every 30 seconds
 

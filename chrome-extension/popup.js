@@ -85,33 +85,47 @@ async function fetchFreshUserData() {
   try {
     console.log('Fetching fresh user data...');
     
-    // Use background script to make API call with proper permissions
-    const response = await chrome.runtime.sendMessage({
-      type: 'FETCH_USER_STATS'
-    });
+    // Get current tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
-    console.log('Background script response:', response);
+    // Only fetch if we're on the Xchangee website
+    if (!tab.url || !tab.url.includes('xchangee.vercel.app')) {
+      console.log('Not on Xchangee website, using cached data');
+      return;
+    }
     
-    if (response.success && response.data) {
-      // Update user data with fresh stats
-      const freshUserData = {
-        ...currentUser,
-        credits: response.data.credits,
-        totalEarned: response.data.totalEarned,
-        totalSpent: response.data.totalSpent,
-        successRate: response.data.successRate
-      };
+    // Send message to content script to fetch user data
+    try {
+      const response = await chrome.tabs.sendMessage(tab.id, {
+        type: 'GET_USER_STATS'
+      });
       
-      // Update current user and storage
-      currentUser = freshUserData;
-      await chrome.storage.local.set({ userData: freshUserData });
-      
-      // Update UI with fresh data
-      updateUserInfo();
-      
-      console.log('Fresh user data loaded:', freshUserData.credits, 'credits');
-    } else {
-      console.warn('Failed to fetch fresh user data:', response.error || 'Unknown error');
+      if (response && response.success && response.data) {
+        console.log('Fresh user data received from website:', response.data);
+        
+        // Update user data with fresh stats
+        const freshUserData = {
+          ...currentUser,
+          credits: response.data.credits,
+          totalEarned: response.data.totalEarned,
+          totalSpent: response.data.totalSpent,
+          successRate: response.data.successRate
+        };
+        
+        // Update current user and storage
+        currentUser = freshUserData;
+        await chrome.storage.local.set({ userData: freshUserData });
+        
+        // Update UI with fresh data
+        updateUserInfo();
+        
+        console.log('Fresh user data updated:', freshUserData.credits, 'credits');
+      } else {
+        console.warn('No valid response from content script:', response);
+      }
+    } catch (messageError) {
+      console.warn('Failed to communicate with content script:', messageError);
+      // Fall back to cached data
     }
   } catch (error) {
     console.warn('Failed to fetch fresh user data:', error);

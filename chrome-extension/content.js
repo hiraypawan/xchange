@@ -638,3 +638,106 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
 console.log('🚀 Xchangee content script fully loaded');
 
 } // End of initialization guard
+
+// Message handler for popup communication
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('Content script received message from popup:', request.type);
+  
+  switch (request.type) {
+    case 'GET_USER_STATS':
+      handleGetUserStats(sendResponse);
+      break;
+    
+    default:
+      sendResponse({ success: false, error: 'Unknown message type' });
+      break;
+  }
+  
+  return true; // Keep message channel open for async response
+});
+
+// Handler to get user stats from the website
+async function handleGetUserStats(sendResponse) {
+  try {
+    console.log('Content script fetching user stats from website...');
+    
+    // Check if we're on the Xchangee website
+    if (!window.location.hostname.includes('xchangee.vercel.app')) {
+      sendResponse({ success: false, error: 'Not on Xchangee website' });
+      return;
+    }
+    
+    // Try to get stats from the website's window object or make direct API call
+    try {
+      // Method 1: Try to fetch directly using the website's fetch (inherits cookies)
+      const response = await fetch('/api/user/stats', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Content script got stats from API:', result);
+        
+        if (result.success) {
+          sendResponse({
+            success: true,
+            data: {
+              credits: result.data.credits,
+              totalEarned: result.data.totalEarned,
+              totalSpent: result.data.totalSpent,
+              successRate: result.data.successRate
+            }
+          });
+          return;
+        }
+      }
+      
+      // Method 2: If API call fails, try to find data in the page
+      console.log('API call failed, trying to extract from page...');
+      
+      // Look for credit display elements in the page
+      const creditElements = document.querySelectorAll('[class*="credit"], [data-testid*="credit"]');
+      console.log('Found credit elements:', creditElements);
+      
+      // Try to find credits in the page content
+      const pageText = document.body.textContent || '';
+      const creditMatch = pageText.match(/(\d+)\s*credits?/i);
+      
+      if (creditMatch) {
+        const credits = parseInt(creditMatch[1]);
+        console.log('Found credits in page text:', credits);
+        
+        sendResponse({
+          success: true,
+          data: {
+            credits: credits,
+            totalEarned: 0,
+            totalSpent: 0,
+            successRate: 0
+          }
+        });
+        return;
+      }
+      
+      // Method 3: Check if React state is available
+      if (window.React || window.ReactDOM) {
+        console.log('React detected, trying to access component state...');
+        // This is a fallback - in practice, accessing React state directly is complex
+      }
+      
+      sendResponse({ success: false, error: 'Could not find user stats on page' });
+      
+    } catch (fetchError) {
+      console.error('Error fetching stats from website:', fetchError);
+      sendResponse({ success: false, error: 'Failed to fetch stats: ' + fetchError.message });
+    }
+    
+  } catch (error) {
+    console.error('Content script error getting user stats:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}

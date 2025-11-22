@@ -176,7 +176,7 @@ export function useRealTimeStats() {
     } finally {
       setIsLoading(false);
     }
-  }, [session?.user?.id]);
+  }, [session?.user]);
 
   // Initial fetch
   useEffect(() => {
@@ -185,14 +185,14 @@ export function useRealTimeStats() {
 
   // Real-time updates every 5 seconds
   useEffect(() => {
-    if (!session?.user?.id) return;
+    if (!session?.user) return;
 
     const interval = setInterval(() => {
       fetchStats();
     }, 5000); // Update every 5 seconds
 
     return () => clearInterval(interval);
-  }, [session?.user?.id, fetchStats]);
+  }, [session?.user, fetchStats]);
 
   // Refresh on window focus
   useEffect(() => {

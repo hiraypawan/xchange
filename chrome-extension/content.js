@@ -1295,21 +1295,25 @@ window.addEventListener('message', (event) => {
 });
 
 // Monitor DOM changes to trigger notifications when dashboard loads
-const dashboardObserver = new MutationObserver((mutations) => {
-  let shouldNotify = false;
+const dashboardObserver = new MutationObserver(function(mutations) {
+  var shouldNotify = false;
   
-  mutations.forEach((mutation) => {
+  mutations.forEach(function(mutation) {
     if (mutation.addedNodes.length > 0) {
-      mutation.addedNodes.forEach((node) => {
+      mutation.addedNodes.forEach(function(node) {
         if (node.nodeType === Node.ELEMENT_NODE) {
-          const element = node;
+          var element = node;
           // Check if dashboard-specific elements are loaded
-          if (element.querySelector && (
-              element.querySelector('[data-extension-dropdown]') ||
-              element.textContent && element.textContent.includes('Extension') ||
-              element.classList && element.classList.contains('dashboard')
-            )) {
-            shouldNotify = true;
+          if (element.querySelector) {
+            try {
+              if (element.querySelector('[data-extension-dropdown]') ||
+                  (element.textContent && element.textContent.includes('Extension')) ||
+                  (element.classList && element.classList.contains('dashboard'))) {
+                shouldNotify = true;
+              }
+            } catch (e) {
+              // Ignore errors
+            }
           }
         }
       });
@@ -1322,11 +1326,15 @@ const dashboardObserver = new MutationObserver((mutations) => {
   }
 });
 
-// Start observing DOM changes
-dashboardObserver.observe(document.body, {
-  childList: true,
-  subtree: true
-});
+// Start observing DOM changes safely
+try {
+  dashboardObserver.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+} catch (e) {
+  console.log('Could not start DOM observer:', e);
+}
 
 // Also trigger on window load and DOMContentLoaded
 window.addEventListener('load', immediateNotifications);

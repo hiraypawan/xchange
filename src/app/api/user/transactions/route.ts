@@ -21,39 +21,64 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
     
-    // Get user by multiple possible identifiers
+    // Enhanced user lookup strategy matching the auth flow
     let user = null;
     
-    // Try by ObjectId first (if session.user.id looks like an ObjectId)
-    if (session.user.id.match(/^[0-9a-fA-F]{24}$/)) {
-      user = await db.collection('users').findOne({ 
-        _id: new (await import('mongodb')).ObjectId(session.user.id) 
-      });
+    console.log('Transactions API - Looking up user with identifiers:', {
+      id: session.user.id,
+      twitterId: session.user.twitterId,
+      email: session.user.email,
+      name: session.user.name
+    });
+    
+    // First: Try by ObjectId if session.user.id is a valid MongoDB ObjectId
+    if (session.user.id && session.user.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const { ObjectId } = await import('mongodb');
+        user = await db.collection('users').findOne({ 
+          _id: new ObjectId(session.user.id) 
+        });
+        console.log('ObjectId lookup result:', user ? 'FOUND' : 'NOT FOUND');
+      } catch (error) {
+        console.log('ObjectId lookup failed:', error);
+      }
     }
     
-    // If not found, try by email
-    if (!user && session.user.email) {
-      user = await db.collection('users').findOne({ 
-        email: session.user.email 
-      });
-    }
-    
-    // If not found, try by twitterId (if available)
+    // Second: Try by twitterId if available
     if (!user && session.user.twitterId) {
       user = await db.collection('users').findOne({ 
         twitterId: session.user.twitterId 
       });
+      console.log('TwitterId lookup result:', user ? 'FOUND' : 'NOT FOUND');
+    }
+    
+    // Third: Try by email if available
+    if (!user && session.user.email) {
+      user = await db.collection('users').findOne({ 
+        email: session.user.email 
+      });
+      console.log('Email lookup result:', user ? 'FOUND' : 'NOT FOUND');
     }
 
     if (!user) {
+      console.error('Transactions API - User not found with session data:', {
+        id: session.user.id,
+        twitterId: session.user.twitterId,
+        email: session.user.email
+      });
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
 
-    // Build query
-    const query: any = { userId: user._id.toString() };
+    // Build query with both possible userId formats for compatibility
+    const userIdQueries = [user._id.toString()];
+    if (user.twitterId) {
+      userIdQueries.push(user.twitterId);
+    }
+    
+    const query: any = { userId: { $in: userIdQueries } };
     
     if (since) {
       query.createdAt = { $gte: new Date(since) };

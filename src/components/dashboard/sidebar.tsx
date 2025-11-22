@@ -76,6 +76,12 @@ export default function DashboardSidebar() {
             <p className="text-xs text-gray-500">
               {isLoadingStats ? 'Loading...' : `${stats?.credits || 0} credits`}
             </p>
+            {/* Debug info */}
+            {process.env.NODE_ENV === 'development' && (
+              <p className="text-xs text-red-500">
+                Debug: {JSON.stringify({loading: isLoadingStats, credits: stats?.credits, hasStats: !!stats})}
+              </p>
+            )}
           </div>
         </div>
       </div>

@@ -52,12 +52,16 @@ export function useRealTimeStats() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchStats = useCallback(async () => {
+    console.log('useRealTimeStats - fetchStats called with session:', !!session?.user);
+    
     if (!session?.user) {
+      console.log('useRealTimeStats - No session, stopping');
       setIsLoading(false);
       return;
     }
 
     try {
+      console.log('useRealTimeStats - Making API call to /api/user/stats');
       const response = await apiCall('/api/user/stats');
 
       if (!response.ok) {
@@ -65,6 +69,9 @@ export function useRealTimeStats() {
       }
 
       const result: UserStatsResponse = await response.json();
+      
+      console.log('useRealTimeStats - API Response:', result);
+      console.log('useRealTimeStats - Credits from API:', result.data?.credits);
       
       if (result.success) {
         // Calculate today's stats

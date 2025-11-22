@@ -23,8 +23,23 @@ export async function GET(request: NextRequest) {
 
     console.log('📊 Getting real admin stats from database...');
 
+    // Debug: Check database connection and collections
+    const collections = await db.listCollections().toArray();
+    console.log('Available collections:', collections.map(c => c.name));
+
     // Calculate real statistics
     const totalUsers = await db.collection('users').countDocuments();
+    console.log('Raw totalUsers count:', totalUsers);
+
+    // Debug: Show sample users
+    const sampleUsers = await db.collection('users').find({}).limit(3).toArray();
+    console.log('Sample users in database:', sampleUsers.map(u => ({
+      id: u._id,
+      name: u.displayName || u.username,
+      email: u.email,
+      credits: u.credits,
+      createdAt: u.createdAt
+    })));
     
     // Active users (logged in within last 7 days)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);

@@ -67,15 +67,18 @@ export default function AdminDashboard() {
           setStats(realStats);
           console.log('✅ Real stats loaded:', realStats);
         } else {
-          console.error('❌ Failed to load stats:', statsResponse.status);
+          const errorText = await statsResponse.text();
+          console.error('❌ Failed to load stats:', statsResponse.status, errorText);
         }
 
         if (usersResponse.ok) {
           realUsers = await usersResponse.json();
           setUsers(realUsers);
           console.log('✅ Real users loaded:', realUsers.length, 'users');
+          console.log('First few users:', realUsers.slice(0, 2));
         } else {
-          console.error('❌ Failed to load users:', usersResponse.status);
+          const errorText = await usersResponse.text();
+          console.error('❌ Failed to load users:', usersResponse.status, errorText);
         }
 
         setLoading(false);

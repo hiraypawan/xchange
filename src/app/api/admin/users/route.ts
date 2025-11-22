@@ -23,6 +23,17 @@ export async function GET(request: NextRequest) {
 
     console.log('👥 Getting real users from database...');
 
+    // Debug: Check what's in the users collection
+    const totalUserCount = await db.collection('users').countDocuments();
+    console.log('Total users in database:', totalUserCount);
+
+    const sampleRawUsers = await db.collection('users').find({}).limit(2).toArray();
+    console.log('Sample raw users:', JSON.stringify(sampleRawUsers, null, 2));
+
+    // Check if credit_transactions collection exists
+    const transactionCount = await db.collection('credit_transactions').countDocuments().catch(() => 0);
+    console.log('Total credit transactions:', transactionCount);
+
     // Get all users with their credit transactions
     const usersWithTransactions = await db.collection('users').aggregate([
       {

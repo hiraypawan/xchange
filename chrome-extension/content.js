@@ -683,6 +683,7 @@ async function handleGetUserStats(sendResponse) {
     // Try to get stats from the website's window object or make direct API call
     try {
       // Method 1: Try to fetch directly using the website's fetch (inherits cookies)
+      console.log('🚀 Making API call to /api/user/stats...');
       const response = await fetch('/api/user/stats', {
         method: 'GET',
         credentials: 'include',
@@ -691,9 +692,11 @@ async function handleGetUserStats(sendResponse) {
         }
       });
       
+      console.log('📡 API response status:', response.status, response.statusText);
+      
       if (response.ok) {
         const result = await response.json();
-        console.log('Content script got stats from API:', result);
+        console.log('🎯 SUCCESS: Content script got stats from API:', result);
         
         if (result.success) {
           sendResponse({

@@ -641,7 +641,7 @@ console.log('🚀 Xchangee content script fully loaded');
 
 // PRIORITY: Register popup message handler FIRST to avoid conflicts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Content script received message from popup:', request.type, 'on URL:', window.location.href);
+  console.log('🎯 UPDATED HANDLER: Content script received message:', request.type, 'on URL:', window.location.href);
   
   // Immediately acknowledge we received the message
   if (request.type === 'GET_USER_STATS') {

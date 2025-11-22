@@ -142,8 +142,8 @@ async function handlePopupLogin(sendResponse) {
   try {
     console.log('🔐 CONTENT: Initiating login...');
     
-    // Open login page
-    const loginUrl = 'https://xchangee.vercel.app/auth/signin';
+    // Open main page (which handles authentication via NextAuth)
+    const loginUrl = 'https://xchangee.vercel.app/';
     window.open(loginUrl, '_blank');
     
     sendResponse({
@@ -176,7 +176,7 @@ async function handlePopupLogout(sendResponse) {
     
     // Open logout page if on Xchangee site
     if (window.location.hostname.includes('xchangee')) {
-      window.location.href = '/auth/signin';
+      window.location.href = '/';
     }
     
     sendResponse({

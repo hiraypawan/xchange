@@ -325,6 +325,8 @@ async function updatePopupData() {
 async function detectAuthFromPage() {
   try {
     console.log('🔍 CONTENT: Detecting real authentication from Xchangee page...');
+    console.log('🔍 Current URL:', window.location.href);
+    console.log('🔍 Page title:', document.title);
     
     // Reset authentication state first
     popupData.isAuthenticated = false;
@@ -377,24 +379,53 @@ async function detectAuthFromPage() {
     // Method 2: Look for real authentication indicators in DOM
     const authIndicators = [
       'button[class*="sign-out"]',
-      'button[class*="logout"]',
+      'button[class*="logout"]', 
       '[data-testid*="user"]',
       '[class*="dashboard"]',
-      'nav[class*="authenticated"]'
+      'nav[class*="authenticated"]',
+      // Add more specific indicators
+      'a[href*="/dashboard"]',
+      'button:contains("Sign out")',
+      'text:contains("Sign out")',
+      '[class*="profile"]',
+      '[href="/profile"]'
     ];
     
     let isReallyAuthenticated = false;
+    console.log('🔍 Checking for authentication indicators...');
+    
     for (const selector of authIndicators) {
-      const element = document.querySelector(selector);
-      if (element) {
-        isReallyAuthenticated = true;
-        console.log('✅ Found authentication indicator:', selector);
-        break;
+      try {
+        const element = document.querySelector(selector);
+        if (element) {
+          isReallyAuthenticated = true;
+          console.log('✅ Found authentication indicator:', selector, element);
+          break;
+        }
+      } catch (e) {
+        // Selector might be invalid, continue
       }
     }
     
+    // Also check if we're on dashboard page (strong indicator of authentication)
+    if (window.location.pathname === '/dashboard') {
+      console.log('✅ On dashboard page - assuming authenticated');
+      isReallyAuthenticated = true;
+    }
+    
+    // Check page content for auth indicators
+    const pageText = document.body.textContent || '';
+    if (pageText.includes('Sign out') || pageText.includes('Logout') || pageText.includes('My Profile')) {
+      console.log('✅ Found auth text in page content');
+      isReallyAuthenticated = true;
+    }
+    
+    console.log('🔍 Authentication indicators check result:', isReallyAuthenticated);
+    
     if (!isReallyAuthenticated) {
       console.log('❌ No real authentication detected on page');
+      console.log('🔍 Available buttons:', Array.from(document.querySelectorAll('button')).map(b => b.textContent?.trim()));
+      console.log('🔍 Available links:', Array.from(document.querySelectorAll('a')).map(a => a.href + ' - ' + a.textContent?.trim()).slice(0, 10));
       return;
     }
     
@@ -403,15 +434,22 @@ async function detectAuthFromPage() {
     let realCredits = null;
     
     // Look for "Welcome back, [Name]" pattern first
+    console.log('🔍 Searching for welcome message...');
+    const pageHtml = document.body.innerHTML;
+    console.log('🔍 Page contains "Welcome back":', pageHtml.includes('Welcome back'));
+    
     const welcomeElements = document.querySelectorAll('*');
     for (const el of welcomeElements) {
       const text = el.textContent?.trim();
-      if (text && text.includes('Welcome back,') && text.includes('!')) {
-        const match = text.match(/Welcome back,\s*([^!]+)!/);
-        if (match && match[1]) {
-          realUserName = match[1].trim();
-          console.log('✅ Found user name in welcome message:', realUserName);
-          break;
+      if (text && text.includes('Welcome back')) {
+        console.log('🔍 Found welcome element text:', text);
+        if (text.includes('!')) {
+          const match = text.match(/Welcome back,\s*([^!]+)!/);
+          if (match && match[1]) {
+            realUserName = match[1].trim();
+            console.log('✅ Found user name in welcome message:', realUserName);
+            break;
+          }
         }
       }
     }
@@ -447,11 +485,19 @@ async function detectAuthFromPage() {
     }
     
     // Look for credits with stricter validation
+    console.log('🔍 Searching for credits...');
+    console.log('🔍 Page contains "credit":', pageHtml.includes('credit'));
+    
     // First check for visible credit displays
     const allElements = document.querySelectorAll('*');
+    let creditTexts = [];
+    
     for (const el of allElements) {
       const text = el.textContent?.trim();
-      if (text) {
+      if (text && text.includes('credit')) {
+        creditTexts.push(text);
+        console.log('🔍 Found credit-related text:', text);
+        
         // Look for patterns like "2 credits", "Available Credits 2", etc.
         const creditPatterns = [
           /^(\d+)\s*credits?$/i,
@@ -474,6 +520,8 @@ async function detectAuthFromPage() {
         if (realCredits !== null) break;
       }
     }
+    
+    console.log('🔍 All credit texts found:', creditTexts.slice(0, 5)); // Show first 5
     
     // Fallback: look for specific credit selectors
     if (realCredits === null) {

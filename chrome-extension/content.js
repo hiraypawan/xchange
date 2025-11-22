@@ -1213,12 +1213,12 @@ const dashboardNotificationInterval = setInterval(() => {
 }, 2000); // Every 2 seconds for faster detection
 
 // Additional immediate notifications on page events
-const immediateNotifications = () => {
+function immediateNotifications() {
   setTimeout(notifyDashboardConnection, 100);
   setTimeout(notifyDashboardConnection, 500);
   setTimeout(notifyDashboardConnection, 1000);
   setTimeout(notifyDashboardConnection, 2000);
-};
+}
 
 // Trigger immediate notifications
 immediateNotifications();
@@ -1257,9 +1257,9 @@ setTimeout(() => {
 }, 2000); // Delay to let page load
 
 // Also notify on page visibility change
-document.addEventListener('visibilitychange', () => {
+document.addEventListener('visibilitychange', function() {
   if (!document.hidden) {
-    setTimeout(() => {
+    setTimeout(function() {
       notifyDashboardConnection();
       updatePopupData();
     }, 1000);
@@ -1267,14 +1267,14 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // Listen for dashboard extension check messages
-window.addEventListener('message', (event) => {
-  if (event.data?.type === 'XCHANGEE_EXTENSION_CHECK' && event.data?.source === 'website') {
+window.addEventListener('message', function(event) {
+  if (event.data && event.data.type === 'XCHANGEE_EXTENSION_CHECK' && event.data.source === 'website') {
     console.log('📡 CONTENT: Dashboard checking extension status, responding...');
     
     // Update authentication status before responding
-    updatePopupData().then(() => {
+    updatePopupData().then(function() {
       // Respond with current extension status
-      const responseData = {
+      var responseData = {
         type: 'XCHANGEE_EXTENSION_RESPONSE',
         source: 'extension',
         version: '2.0',
@@ -1286,8 +1286,8 @@ window.addEventListener('message', (event) => {
       
       // Send response immediately and multiple times to ensure receipt
       window.postMessage(responseData, '*');
-      setTimeout(() => window.postMessage(responseData, '*'), 50);
-      setTimeout(() => window.postMessage(responseData, '*'), 100);
+      setTimeout(function() { window.postMessage(responseData, '*'); }, 50);
+      setTimeout(function() { window.postMessage(responseData, '*'); }, 100);
       
       console.log('📡 CONTENT: Sent extension status response:', responseData);
     });

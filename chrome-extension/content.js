@@ -142,14 +142,30 @@ async function handlePopupLogin(sendResponse) {
   try {
     console.log('🔐 CONTENT: Initiating login...');
     
-    // Open main page (which handles authentication via NextAuth)
-    const loginUrl = 'https://xchangee.vercel.app/';
-    window.open(loginUrl, '_blank');
-    
-    sendResponse({
-      success: true,
-      message: 'Login page opened'
-    });
+    // Check if already on Xchangee site
+    if (window.location.hostname.includes('xchangee')) {
+      // If on dashboard and not authenticated, redirect to home page
+      if (window.location.pathname === '/dashboard') {
+        window.location.href = '/';
+      } else {
+        // Already on main page, just reload to trigger auth
+        window.location.reload();
+      }
+      
+      sendResponse({
+        success: true,
+        message: 'Redirecting to login...'
+      });
+    } else {
+      // Open main page (which handles authentication via NextAuth)
+      const loginUrl = 'https://xchangee.vercel.app/';
+      window.open(loginUrl, '_blank');
+      
+      sendResponse({
+        success: true,
+        message: 'Login page opened'
+      });
+    }
     
   } catch (error) {
     console.error('❌ CONTENT: Login failed:', error);
@@ -316,7 +332,29 @@ async function detectAuthFromPage() {
     
     // Look for NextAuth session data or real user indicators
     // Method 1: Check for NextAuth session in the page
-    if (window.next && window.next.session) {
+    if (window.__NEXT_DATA__ && window.__NEXT_DATA__.props && window.__NEXT_DATA__.props.pageProps) {
+      const pageProps = window.__NEXT_DATA__.props.pageProps;
+      if (pageProps.session && pageProps.session.user) {
+        const session = pageProps.session;
+        console.log('✅ Found NextAuth session in __NEXT_DATA__:', session.user);
+        popupData.isAuthenticated = true;
+        popupData.user = {
+          name: session.user.name,
+          email: session.user.email,
+          image: session.user.image,
+          credits: 0 // Will be updated by updateUserStats
+        };
+        
+        await chrome.storage.local.set({ 
+          xchangeeUser: popupData.user,
+          xchangeeToken: session.accessToken || 'nextauth_authenticated'
+        });
+        return;
+      }
+    }
+    
+    // Method 1b: Check global NextAuth session
+    if (typeof window !== 'undefined' && window.next && window.next.session) {
       const session = window.next.session;
       if (session.user) {
         console.log('✅ Found NextAuth session:', session.user);
@@ -364,13 +402,29 @@ async function detectAuthFromPage() {
     let realUserName = null;
     let realCredits = null;
     
-    // Look for user name in typical locations
-    const userSelectors = [
-      '[class*="username"]',
-      '[class*="user-name"]', 
-      'h1, h2, h3',
-      '[data-testid*="name"]'
-    ];
+    // Look for "Welcome back, [Name]" pattern first
+    const welcomeElements = document.querySelectorAll('*');
+    for (const el of welcomeElements) {
+      const text = el.textContent?.trim();
+      if (text && text.includes('Welcome back,') && text.includes('!')) {
+        const match = text.match(/Welcome back,\s*([^!]+)!/);
+        if (match && match[1]) {
+          realUserName = match[1].trim();
+          console.log('✅ Found user name in welcome message:', realUserName);
+          break;
+        }
+      }
+    }
+    
+    // Look for user name in typical locations if not found in welcome message
+    if (!realUserName) {
+      const userSelectors = [
+        'h1, h2, h3',
+        '[class*="username"]',
+        '[class*="user-name"]', 
+        '[data-testid*="name"]',
+        '.text-2xl, .text-xl, .font-bold'
+      ];
     
     for (const selector of userSelectors) {
       const elements = document.querySelectorAll(selector);
@@ -393,29 +447,61 @@ async function detectAuthFromPage() {
     }
     
     // Look for credits with stricter validation
-    const creditSelectors = [
-      '[class*="credit"][class*="balance"]',
-      '[data-testid*="credit"]',
-      '.credit-display'
-    ];
-    
-    for (const selector of creditSelectors) {
-      const elements = document.querySelectorAll(selector);
-      for (const el of elements) {
-        const text = el.textContent?.trim();
-        if (text && text.includes('credit')) {
-          const match = text.match(/(\d+)\s*credits?/i);
+    // First check for visible credit displays
+    const allElements = document.querySelectorAll('*');
+    for (const el of allElements) {
+      const text = el.textContent?.trim();
+      if (text) {
+        // Look for patterns like "2 credits", "Available Credits 2", etc.
+        const creditPatterns = [
+          /^(\d+)\s*credits?$/i,
+          /(\d+)\s*credits?$/i,
+          /credits?:?\s*(\d+)/i,
+          /available\s*credits?:?\s*(\d+)/i
+        ];
+        
+        for (const pattern of creditPatterns) {
+          const match = text.match(pattern);
           if (match) {
-            realCredits = parseInt(match[1]);
-            console.log('✅ Found real credits:', realCredits);
-            break;
+            const credits = parseInt(match[1]);
+            if (credits >= 0 && credits < 10000) { // Reasonable range
+              realCredits = credits;
+              console.log('✅ Found real credits:', realCredits, 'from text:', text);
+              break;
+            }
           }
         }
+        if (realCredits !== null) break;
       }
-      if (realCredits !== null) break;
     }
     
-    // Only set authentication if we have REAL data
+    // Fallback: look for specific credit selectors
+    if (realCredits === null) {
+      const creditSelectors = [
+        '[class*="credit"]',
+        '[data-testid*="credit"]',
+        '.credit-display',
+        'h1, h2, h3, h4'
+      ];
+      
+      for (const selector of creditSelectors) {
+        const elements = document.querySelectorAll(selector);
+        for (const el of elements) {
+          const text = el.textContent?.trim();
+          if (text && text.includes('credit')) {
+            const match = text.match(/(\d+)\s*credits?/i);
+            if (match) {
+              realCredits = parseInt(match[1]);
+              console.log('✅ Found credits via selector:', selector, realCredits);
+              break;
+            }
+          }
+        }
+        if (realCredits !== null) break;
+      }
+    }
+    
+    // Only set authentication if we have REAL data OR strong authentication indicators
     if (realUserName && realUserName !== 'User') {
       popupData.isAuthenticated = true;
       popupData.user = {
@@ -430,8 +516,26 @@ async function detectAuthFromPage() {
       });
       
       console.log('✅ Real authentication detected and saved');
+    } else if (isReallyAuthenticated && realCredits !== null) {
+      // If we found strong auth indicators and credits, but no clear username
+      // Use a fallback approach
+      const fallbackName = 'Authenticated User'; // Will be updated when we find real name
+      popupData.isAuthenticated = true;
+      popupData.user = {
+        name: fallbackName,
+        credits: realCredits,
+        image: null
+      };
+      
+      await chrome.storage.local.set({ 
+        xchangeeUser: popupData.user,
+        xchangeeToken: 'page_authenticated_fallback'
+      });
+      
+      console.log('✅ Authentication detected via indicators and credits');
     } else {
       console.log('❌ No valid user data found - keeping unauthenticated state');
+      console.log('Debug: isReallyAuthenticated:', isReallyAuthenticated, 'realUserName:', realUserName, 'realCredits:', realCredits);
     }
     
   } catch (error) {
@@ -473,10 +577,16 @@ function isValidAuthentication(authData) {
     return false;
   }
   
-  // Invalid user data
+  // Invalid user data (but allow 'Authenticated User' as fallback)
   if (!user.name || user.name === 'User' || user.name === 'Unknown' || user.name === 'Test User') {
     console.log('❌ Invalid user name detected:', user.name);
     return false;
+  }
+  
+  // Allow 'Authenticated User' as valid fallback
+  if (user.name === 'Authenticated User' && token === 'page_authenticated_fallback') {
+    console.log('✅ Fallback authenticated user is valid');
+    return true;
   }
   
   // User name too generic or suspicious

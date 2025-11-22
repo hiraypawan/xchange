@@ -64,15 +64,54 @@ export async function GET(req: NextRequest) {
       
       // Validate we have minimum required data
       if (!session.user.twitterId && !session.user.email) {
-        console.error('Cannot create user: missing both twitterId and email');
-        return NextResponse.json(
-          { error: 'User session incomplete - missing identification data' },
-          { status: 400 }
-        );
+        console.error('Cannot create user: missing both twitterId and email', {
+          sessionUser: {
+            id: session.user.id,
+            name: session.user.name,
+            image: session.user.image,
+            email: session.user.email,
+            twitterId: session.user.twitterId,
+            username: session.user.username
+          }
+        });
+        
+        // Try to find user by session.user.id if it looks like a twitterId
+        if (session.user.id && !session.user.id.match(/^[0-9a-fA-F]{24}$/)) {
+          console.log('Trying to find user by session.user.id as twitterId:', session.user.id);
+          user = await db.collection('users').findOne({ 
+            twitterId: session.user.id 
+          });
+          if (user) {
+            console.log('Found user by session.user.id as twitterId');
+          }
+        }
+        
+        // If still no user and we have any identifying information, attempt creation
+        if (!user && (session.user.id || session.user.name)) {
+          console.log('Attempting user creation with available session data');
+          // We'll continue with creation below
+        } else if (!user) {
+          return NextResponse.json(
+            { 
+              error: 'User session incomplete - missing identification data',
+              debug: {
+                hasId: !!session.user.id,
+                hasEmail: !!session.user.email,
+                hasTwitterId: !!session.user.twitterId,
+                hasName: !!session.user.name
+              }
+            },
+            { status: 400 }
+          );
+        }
       }
       
+      // Use session.user.id as twitterId if it doesn't look like ObjectId and we don't have twitterId
+      const effectiveTwitterId = session.user.twitterId || 
+        (session.user.id && !session.user.id.match(/^[0-9a-fA-F]{24}$/) ? session.user.id : null);
+      
       const newUser = {
-        twitterId: session.user.twitterId || null,
+        twitterId: effectiveTwitterId,
         email: session.user.email || null,
         name: session.user.name || 'Unknown User',
         username: session.user.username || session.user.name?.replace(/\s+/g, '').toLowerCase() || 'unknown',
@@ -99,6 +138,12 @@ export async function GET(req: NextRequest) {
           rank: 0,
         }
       };
+      
+      console.log('Creating user with data:', {
+        twitterId: newUser.twitterId,
+        email: newUser.email,
+        name: newUser.name
+      });
       
       try {
         const result = await db.collection('users').insertOne(newUser);

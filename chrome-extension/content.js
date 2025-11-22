@@ -580,38 +580,82 @@ async function detectAuthFromPage() {
       
       // Try to find user profile image with more comprehensive search
       console.log('🔍 Searching for profile image...');
-      const imageSelectors = [
-        'img[class*="avatar"]',
-        'img[class*="profile"]', 
-        'img[class*="user"]',
-        'img[alt*="profile"]',
-        'img[alt*="avatar"]',
-        'img[alt*="user"]',
-        '[class*="avatar"] img',
-        '[class*="profile"] img',
-        '.rounded-full img', // Common Tailwind avatar class
-        '.rounded-circle img', // Bootstrap avatar class
-        'img[src*="avatar"]',
-        'img[src*="profile"]'
-      ];
       
+      // Try to get profile image from NextAuth session data first
       let userImage = null;
       
-      // First, try specific selectors
-      for (const selector of imageSelectors) {
-        try {
-          const img = document.querySelector(selector);
-          if (img && img.src && img.src.startsWith('http') && 
-              !img.src.includes('placeholder') && 
-              !img.src.includes('default') &&
-              !img.src.includes('icon') &&
-              img.width > 20 && img.height > 20) { // Must be reasonable size
-            userImage = img.src;
-            console.log('✅ Found user profile image via selector:', selector, userImage);
-            break;
+      // Method 1: Check NextAuth session data
+      if (window.__NEXT_DATA__ && window.__NEXT_DATA__.props && window.__NEXT_DATA__.props.pageProps) {
+        const pageProps = window.__NEXT_DATA__.props.pageProps;
+        if (pageProps.session && pageProps.session.user && pageProps.session.user.image) {
+          userImage = pageProps.session.user.image;
+          console.log('✅ Found profile image from NextAuth session:', userImage);
+        }
+      }
+      
+      // Method 2: Check for Twitter/X profile images if no session image
+      if (!userImage && (window.location.hostname.includes('twitter.com') || window.location.hostname.includes('x.com'))) {
+        const twitterSelectors = [
+          '[data-testid="UserAvatar-Container-unknown"] img',
+          '[data-testid="UserAvatar-Container"] img',
+          'img[alt*="profile"]',
+          'a[href*="/photo"] img',
+          '.css-9pa8cd img', // Twitter's avatar container
+          '.r-1p0dtai img', // Twitter's rounded image class
+          '.r-1mlwlqe img'  // Twitter's profile image class
+        ];
+        
+        for (const selector of twitterSelectors) {
+          try {
+            const img = document.querySelector(selector);
+            if (img && img.src && img.src.startsWith('http') && 
+                !img.src.includes('default') && img.width > 20) {
+              userImage = img.src;
+              console.log('✅ Found Twitter profile image:', userImage);
+              break;
+            }
+          } catch (e) {
+            // Continue
           }
-        } catch (e) {
-          // Selector might be invalid, continue
+        }
+      }
+      
+      // Method 3: Standard selectors for other sites
+      if (!userImage) {
+        const imageSelectors = [
+          'img[class*="avatar"]',
+          'img[class*="profile"]', 
+          'img[class*="user"]',
+          'img[alt*="profile"]',
+          'img[alt*="avatar"]',
+          'img[alt*="user"]',
+          '[class*="avatar"] img',
+          '[class*="profile"] img',
+          '.rounded-full img', // Common Tailwind avatar class
+          '.rounded-circle img', // Bootstrap avatar class
+          'img[src*="avatar"]',
+          'img[src*="profile"]',
+          // Xchangee specific selectors
+          'img[alt*="Pawan"]',
+          'img[alt*="profile picture"]'
+        ];
+        
+        // Try specific selectors
+        for (const selector of imageSelectors) {
+          try {
+            const img = document.querySelector(selector);
+            if (img && img.src && img.src.startsWith('http') && 
+                !img.src.includes('placeholder') && 
+                !img.src.includes('default') &&
+                !img.src.includes('icon') &&
+                img.width > 20 && img.height > 20) { // Must be reasonable size
+              userImage = img.src;
+              console.log('✅ Found user profile image via selector:', selector, userImage);
+              break;
+            }
+          } catch (e) {
+            // Selector might be invalid, continue
+          }
         }
       }
       
@@ -619,16 +663,58 @@ async function detectAuthFromPage() {
       if (!userImage) {
         console.log('🔍 Searching all images for profile picture...');
         const allImages = document.querySelectorAll('img');
+        const potentialImages = [];
+        
         for (const img of allImages) {
           if (img.src && img.src.startsWith('http') && 
               !img.src.includes('icon') &&
               !img.src.includes('logo') &&
               !img.src.includes('placeholder') &&
-              img.width > 30 && img.height > 30 && 
-              img.width < 200 && img.height < 200) { // Profile pic size range
-            userImage = img.src;
-            console.log('✅ Found potential profile image:', userImage);
+              !img.src.includes('default') &&
+              img.width > 20 && img.height > 20 && 
+              img.width <= 200 && img.height <= 200) { // Profile pic size range
+            
+            potentialImages.push({
+              src: img.src,
+              width: img.width,
+              height: img.height,
+              alt: img.alt,
+              className: img.className
+            });
+          }
+        }
+        
+        console.log('🔍 Potential profile images found:', potentialImages);
+        
+        // Try to find the best profile image candidate
+        for (const imgData of potentialImages) {
+          // Prioritize images that look like profile pictures
+          if (imgData.alt && (
+              imgData.alt.toLowerCase().includes('profile') ||
+              imgData.alt.toLowerCase().includes('avatar') ||
+              imgData.alt.toLowerCase().includes('user') ||
+              imgData.alt.toLowerCase().includes('pawan')
+            )) {
+            userImage = imgData.src;
+            console.log('✅ Found profile image via alt text:', imgData.alt, userImage);
             break;
+          }
+        }
+        
+        // If still no image, take the first reasonable one
+        if (!userImage && potentialImages.length > 0) {
+          // Prefer square-ish images (typical for profile pics)
+          const squareImages = potentialImages.filter(img => {
+            const ratio = img.width / img.height;
+            return ratio >= 0.8 && ratio <= 1.25; // Nearly square
+          });
+          
+          if (squareImages.length > 0) {
+            userImage = squareImages[0].src;
+            console.log('✅ Found square profile image:', userImage);
+          } else if (potentialImages.length > 0) {
+            userImage = potentialImages[0].src;
+            console.log('✅ Using first available image as profile:', userImage);
           }
         }
       }

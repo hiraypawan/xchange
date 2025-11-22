@@ -703,18 +703,65 @@ async function handleGetUserStats(sendResponse) {
       const creditElements = document.querySelectorAll('[class*="credit"], [data-testid*="credit"]');
       console.log('Found credit elements:', creditElements);
       
-      // Try to find credits in the page content
-      const pageText = document.body.textContent || '';
-      const creditMatch = pageText.match(/(\d+)\s*credits?/i);
+      // Try multiple approaches to find credits in page
+      let foundCredits = null;
       
-      if (creditMatch) {
-        const credits = parseInt(creditMatch[1]);
-        console.log('Found credits in page text:', credits);
-        
+      // Approach 1: Look for specific credit displays
+      const creditDisplays = document.querySelectorAll('*');
+      for (const el of creditDisplays) {
+        const text = el.textContent || '';
+        if (text.includes('credits') && !text.includes('0 credits')) {
+          const match = text.match(/(\d+)\s*credits?/i);
+          if (match && parseInt(match[1]) > 0) {
+            foundCredits = parseInt(match[1]);
+            console.log('Found credits in element:', foundCredits, 'from text:', text);
+            break;
+          }
+        }
+      }
+      
+      // Approach 2: Look for the main dashboard "Available Credits" section
+      if (!foundCredits) {
+        const availableCreditsElements = document.querySelectorAll('*');
+        for (const el of availableCreditsElements) {
+          if (el.textContent && el.textContent.includes('Available Credits')) {
+            const parent = el.closest('div');
+            if (parent) {
+              const numberElements = parent.querySelectorAll('*');
+              for (const numEl of numberElements) {
+                const text = numEl.textContent?.trim();
+                if (text && /^\d+$/.test(text) && parseInt(text) > 0) {
+                  foundCredits = parseInt(text);
+                  console.log('Found credits near Available Credits:', foundCredits);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      // Approach 3: General page text search
+      if (!foundCredits) {
+        const pageText = document.body.textContent || '';
+        const creditMatches = pageText.match(/(\d+)\s*credits?/gi);
+        if (creditMatches) {
+          for (const match of creditMatches) {
+            const num = parseInt(match.match(/(\d+)/)[1]);
+            if (num > 0) {
+              foundCredits = num;
+              console.log('Found credits in page text:', foundCredits, 'from match:', match);
+              break;
+            }
+          }
+        }
+      }
+      
+      if (foundCredits !== null) {
         sendResponse({
           success: true,
           data: {
-            credits: credits,
+            credits: foundCredits,
             totalEarned: 0,
             totalSpent: 0,
             successRate: 0

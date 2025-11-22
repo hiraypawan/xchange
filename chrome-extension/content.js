@@ -593,6 +593,21 @@ async function detectAuthFromPage() {
         }
       }
       
+      // Method 1b: Check for session in window.next
+      if (!userImage && window.next && window.next.session && window.next.session.user && window.next.session.user.image) {
+        userImage = window.next.session.user.image;
+        console.log('✅ Found profile image from window.next.session:', userImage);
+      }
+      
+      // Method 1c: Try to extract from existing avatar on page
+      if (!userImage) {
+        const existingAvatar = document.querySelector('img[src*="pbs.twimg.com"], img[src*="googleusercontent"], img[src*="github"], img[src*="gravatar"]');
+        if (existingAvatar && existingAvatar.src) {
+          userImage = existingAvatar.src;
+          console.log('✅ Found profile image from existing avatar:', userImage);
+        }
+      }
+      
       // Method 2: Check for Twitter/X profile images if no session image
       if (!userImage && (window.location.hostname.includes('twitter.com') || window.location.hostname.includes('x.com'))) {
         const twitterSelectors = [
@@ -1180,7 +1195,7 @@ updatePopupData();
 // Notify dashboard immediately and periodically
 notifyDashboardConnection();
 
-// More frequent dashboard notifications to ensure "connected" status
+// More aggressive dashboard notifications to ensure "connected" status
 const dashboardNotificationInterval = setInterval(() => {
   try {
     if (!chrome.storage || !chrome.storage.local) {
@@ -1195,7 +1210,18 @@ const dashboardNotificationInterval = setInterval(() => {
       clearInterval(dashboardNotificationInterval);
     }
   }
-}, 5000); // Every 5 seconds for dashboard connection status
+}, 2000); // Every 2 seconds for faster detection
+
+// Additional immediate notifications on page events
+const immediateNotifications = () => {
+  setTimeout(notifyDashboardConnection, 100);
+  setTimeout(notifyDashboardConnection, 500);
+  setTimeout(notifyDashboardConnection, 1000);
+  setTimeout(notifyDashboardConnection, 2000);
+};
+
+// Trigger immediate notifications
+immediateNotifications();
 
 // Update popup data periodically with error handling
 const updateInterval = setInterval(() => {
@@ -1245,24 +1271,66 @@ window.addEventListener('message', (event) => {
   if (event.data?.type === 'XCHANGEE_EXTENSION_CHECK' && event.data?.source === 'website') {
     console.log('📡 CONTENT: Dashboard checking extension status, responding...');
     
-    // Respond immediately with extension status
-    const responseData = {
-      type: 'XCHANGEE_EXTENSION_RESPONSE',
-      source: 'extension',
-      version: '2.0',
-      timestamp: Date.now(),
-      isAuthenticated: popupData.isAuthenticated,
-      isInstalled: true,
-      status: 'active'
-    };
-    
-    // Send response after a small delay to ensure dashboard is listening
-    setTimeout(() => {
+    // Update authentication status before responding
+    updatePopupData().then(() => {
+      // Respond with current extension status
+      const responseData = {
+        type: 'XCHANGEE_EXTENSION_RESPONSE',
+        source: 'extension',
+        version: '2.0',
+        timestamp: Date.now(),
+        isAuthenticated: popupData.isAuthenticated,
+        isInstalled: true,
+        status: 'active'
+      };
+      
+      // Send response immediately and multiple times to ensure receipt
       window.postMessage(responseData, '*');
+      setTimeout(() => window.postMessage(responseData, '*'), 50);
+      setTimeout(() => window.postMessage(responseData, '*'), 100);
+      
       console.log('📡 CONTENT: Sent extension status response:', responseData);
-    }, 100);
+    });
   }
 });
+
+// Monitor DOM changes to trigger notifications when dashboard loads
+const dashboardObserver = new MutationObserver((mutations) => {
+  let shouldNotify = false;
+  
+  mutations.forEach((mutation) => {
+    if (mutation.addedNodes.length > 0) {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const element = node as Element;
+          // Check if dashboard-specific elements are loaded
+          if (element.querySelector && (
+              element.querySelector('[data-extension-dropdown]') ||
+              element.textContent?.includes('Extension') ||
+              element.classList?.contains('dashboard')
+            )) {
+            shouldNotify = true;
+          }
+        }
+      });
+    }
+  });
+  
+  if (shouldNotify) {
+    console.log('📡 Dashboard elements detected, sending connection notification');
+    immediateNotifications();
+  }
+});
+
+// Start observing DOM changes
+dashboardObserver.observe(document.body, {
+  childList: true,
+  subtree: true
+});
+
+// Also trigger on window load and DOMContentLoaded
+window.addEventListener('load', immediateNotifications);
+document.addEventListener('DOMContentLoaded', immediateNotifications);
 
 let isProcessing = false;
 let observer = null;

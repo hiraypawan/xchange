@@ -578,24 +578,72 @@ async function detectAuthFromPage() {
         xchangeeToken: 'page_authenticated'
       });
       
+      // Try to find user profile image
+      const imageSelectors = [
+        'img[class*="avatar"]',
+        'img[class*="profile"]', 
+        'img[class*="user"]',
+        '[class*="avatar"] img',
+        '[class*="profile"] img'
+      ];
+      
+      let userImage = null;
+      for (const selector of imageSelectors) {
+        const img = document.querySelector(selector);
+        if (img && img.src && !img.src.includes('placeholder') && !img.src.includes('default')) {
+          userImage = img.src;
+          console.log('✅ Found user profile image:', userImage);
+          break;
+        }
+      }
+      
+      // Update user data with image
+      if (userImage) {
+        popupData.user.image = userImage;
+        
+        await chrome.storage.local.set({ 
+          xchangeeUser: popupData.user,
+          xchangeeToken: 'page_authenticated'
+        });
+      }
+      
       console.log('✅ Real authentication detected and saved');
-    } else if (isReallyAuthenticated && realCredits !== null) {
-      // If we found strong auth indicators and credits, but no clear username
-      // Use a fallback approach
-      const fallbackName = 'Authenticated User'; // Will be updated when we find real name
-      popupData.isAuthenticated = true;
-      popupData.user = {
-        name: fallbackName,
-        credits: realCredits,
-        image: null
-      };
+    } else if (isReallyAuthenticated && realCredits !== null && realCredits > 0) {
+      // Only use fallback if we have real credits AND strong auth indicators
+      // But try harder to find the real name first
+      console.log('🔍 Trying harder to find real user name...');
       
-      await chrome.storage.local.set({ 
-        xchangeeUser: popupData.user,
-        xchangeeToken: 'page_authenticated_fallback'
-      });
+      // More aggressive name search for fallback
+      const allTextElements = document.querySelectorAll('*');
+      for (const el of allTextElements) {
+        const text = el.textContent?.trim();
+        if (text && text.length >= 3 && text.length <= 30 && 
+            /^[A-Z][a-z]+(\s[A-Z][a-z]+)*$/.test(text) && // Proper name format
+            !text.includes('Welcome') && !text.includes('Dashboard') &&
+            !text.includes('Sign') && !text.includes('Menu')) {
+          realUserName = text;
+          console.log('✅ Found real name in fallback search:', realUserName);
+          break;
+        }
+      }
       
-      console.log('✅ Authentication detected via indicators and credits');
+      if (realUserName) {
+        popupData.isAuthenticated = true;
+        popupData.user = {
+          name: realUserName,
+          credits: realCredits,
+          image: null
+        };
+        
+        await chrome.storage.local.set({ 
+          xchangeeUser: popupData.user,
+          xchangeeToken: 'page_authenticated'
+        });
+        
+        console.log('✅ Authentication detected with fallback name search');
+      } else {
+        console.log('❌ Could not find real user name, staying unauthenticated to avoid dummy data');
+      }
     } else {
       console.log('❌ No valid user data found - keeping unauthenticated state');
       console.log('Debug: isReallyAuthenticated:', isReallyAuthenticated, 'realUserName:', realUserName, 'realCredits:', realCredits);
@@ -777,38 +825,52 @@ async function getCurrentUserStatsFromPage() {
 
 async function updateOpportunities() {
   try {
-    // For Twitter/X pages, look for engagement opportunities
+    console.log('📋 CONTENT: Updating opportunities from real data...');
+    
+    // Reset opportunities - only show real data
+    popupData.opportunities = [];
+    popupData.stats.queueCount = 0;
+    
+    // For Twitter/X pages, look for actual engagement opportunities
     if (window.location.hostname.includes('twitter.com') || window.location.hostname.includes('x.com')) {
-      const tweets = document.querySelectorAll('[data-testid="tweet"]');
-      const opportunities = [];
+      // Only show opportunities if there are actual engagement tasks available
+      // This should be populated from your API/backend, not fake data
+      console.log('📋 On Twitter/X - checking for real engagement opportunities...');
+      // TODO: Fetch real opportunities from your API
+    } else if (window.location.hostname.includes('xchangee')) {
+      // On Xchangee site - try to get real opportunities from the page or API
+      console.log('📋 On Xchangee site - checking for real opportunities...');
       
-      for (let i = 0; i < Math.min(tweets.length, 5); i++) { // Limit to 5
-        const tweet = tweets[i];
-        const authorElement = tweet.querySelector('[data-testid="User-Name"]');
-        const author = authorElement?.textContent?.trim() || 'Unknown';
-        
-        opportunities.push({
-          type: 'Like',
-          reward: 2,
-          author: author.substring(0, 15), // Limit author name length
-          id: `tweet_${i}`
-        });
+      // Try to get opportunities from the dashboard page
+      const opportunityElements = document.querySelectorAll('[class*="opportunity"], [class*="engagement"], [class*="task"]');
+      const realOpportunities = [];
+      
+      for (const element of opportunityElements) {
+        const text = element.textContent?.trim();
+        if (text && text.includes('credit')) {
+          const match = text.match(/(\d+)\s*credit/);
+          if (match) {
+            const reward = parseInt(match[1]);
+            realOpportunities.push({
+              type: 'Engagement',
+              reward: reward,
+              author: 'platform',
+              id: `real_${Date.now()}_${Math.random()}`
+            });
+          }
+        }
       }
       
-      popupData.opportunities = opportunities;
-    } else {
-      // Mock opportunities for Xchangee site
-      popupData.opportunities = [
-        {
-          type: 'Engagement',
-          reward: 5,
-          author: 'platform',
-          id: 'mock_1'
-        }
-      ];
+      if (realOpportunities.length > 0) {
+        popupData.opportunities = realOpportunities;
+        console.log('✅ Found real opportunities:', realOpportunities);
+      } else {
+        console.log('📋 No real opportunities found on page');
+      }
     }
     
     popupData.stats.queueCount = popupData.opportunities.length;
+    console.log('📋 Queue count:', popupData.stats.queueCount);
     
   } catch (error) {
     console.error('❌ CONTENT: Failed to update opportunities:', error);

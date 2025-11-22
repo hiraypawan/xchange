@@ -46,12 +46,37 @@ export const authOptions: NextAuthOptions = {
           const { db } = await connectToDatabase();
           const twitterProfile = profile as TwitterProfile;
           
-          // Check if user exists by twitterId only (each Twitter account is unique)
+          // Check if user exists by twitterId OR email (prevent duplicates)
           const existingUser = await db.collection('users').findOne({
-            twitterId: twitterProfile.id
+            $or: [
+              { twitterId: twitterProfile.id },
+              { email: user.email }
+            ]
           });
 
-          if (!existingUser) {
+          if (existingUser) {
+            console.log('✅ Existing user found, preventing duplicate account creation:', existingUser._id);
+            
+            // Update existing user with latest Twitter data if needed
+            await db.collection('users').updateOne(
+              { _id: existingUser._id },
+              {
+                $set: {
+                  twitterId: twitterProfile.id,
+                  username: twitterProfile.username || existingUser.username,
+                  displayName: twitterProfile.name || existingUser.displayName,
+                  profileImage: twitterProfile.profile_image_url || existingUser.profileImage,
+                  email: user.email || existingUser.email,
+                  lastLogin: new Date(),
+                  updatedAt: new Date()
+                }
+              }
+            );
+            
+            // Use existing user ID to prevent duplicate
+            user.id = existingUser._id.toString();
+            return true;
+          } else {
             // Create new user with starting credits
             const newUser: Omit<User, '_id'> = {
               twitterId: twitterProfile.id,
@@ -81,29 +106,43 @@ export const authOptions: NextAuthOptions = {
               },
             };
 
-            await db.collection('users').insertOne(newUser);
-
-            // Create welcome credit transaction
-            await db.collection('credit_transactions').insertOne({
-              userId: twitterProfile.id,
-              type: 'bonus',
-              amount: parseInt(process.env.USER_STARTING_CREDITS || '100'),
-              balance: parseInt(process.env.USER_STARTING_CREDITS || '100'),
-              description: 'Welcome bonus',
-              createdAt: new Date(),
+            // Double-check no user was created in the meantime (race condition protection)
+            const raceCheck = await db.collection('users').findOne({
+              $or: [
+                { twitterId: twitterProfile.id },
+                { email: user.email }
+              ]
             });
-          } else {
-            // Update last active
-            await db.collection('users').updateOne(
-              { twitterId: twitterProfile.id },
-              { 
-                $set: { 
-                  lastActive: new Date(),
-                  avatar: twitterProfile.profile_image_url || user.image,
-                  displayName: twitterProfile.name || user.name || existingUser.displayName,
-                }
-              }
-            );
+
+            if (raceCheck) {
+              console.log('🔒 Race condition detected, using existing user:', raceCheck._id);
+              user.id = raceCheck._id.toString();
+              return true;
+            }
+
+            const result = await db.collection('users').insertOne(newUser);
+
+            if (result.acknowledged) {
+              console.log('✅ New user created with starting credits:', {
+                id: result.insertedId,
+                username: newUser.username,
+                credits: newUser.credits,
+                email: newUser.email
+              });
+
+              // Set the user ID for NextAuth
+              user.id = result.insertedId.toString();
+
+              // Create welcome credit transaction
+              await db.collection('credit_transactions').insertOne({
+                userId: result.insertedId.toString(),
+                type: 'bonus',
+                amount: parseInt(process.env.USER_STARTING_CREDITS || '2'),
+                balance: parseInt(process.env.USER_STARTING_CREDITS || '2'),
+                description: 'Welcome bonus - Account creation',
+                createdAt: new Date(),
+              });
+            }
           }
         }
         return true;

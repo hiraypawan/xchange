@@ -150,7 +150,7 @@ function updateUserInfo() {
   const userInitialsEl = document.getElementById('user-initials');
   
   if (currentUser) {
-    userNameEl.textContent = (currentUser.displayName || currentUser.username) + ' Hello';
+    userNameEl.textContent = currentUser.displayName || currentUser.username;
     
     console.log('Extension popup - updating credits display:', {
       credits: currentUser.credits,

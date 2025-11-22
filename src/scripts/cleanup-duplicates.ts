@@ -50,7 +50,7 @@ async function cleanupDuplicateUsers() {
     let duplicatesRemoved = 0;
     
     // Process email duplicates
-    for (const [email, users] of emailGroups.entries()) {
+    for (const [email, users] of Array.from(emailGroups.entries())) {
       if (users.length > 1) {
         console.log(`🔍 Found ${users.length} users with email: ${email}`);
         duplicatesFound += users.length - 1;
@@ -102,7 +102,7 @@ async function cleanupDuplicateUsers() {
     }
     
     // Process Twitter ID duplicates (if any remain)
-    for (const [twitterId, users] of twitterIdGroups.entries()) {
+    for (const [twitterId, users] of Array.from(twitterIdGroups.entries())) {
       if (users.length > 1) {
         console.log(`🔍 Found ${users.length} users with Twitter ID: ${twitterId}`);
         

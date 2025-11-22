@@ -30,6 +30,9 @@ interface UserStatsResponse {
 
 export function useRealTimeStats() {
   const { data: session } = useSession();
+  
+  console.log('useRealTimeStats - Hook called, session:', session ? 'EXISTS' : 'NULL', session?.user ? 'HAS_USER' : 'NO_USER');
+  
   const [stats, setStats] = useState<UserStats>({
     credits: 0,
     totalEarned: 0,
@@ -52,7 +55,7 @@ export function useRealTimeStats() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchStats = useCallback(async () => {
-    console.log('useRealTimeStats - fetchStats called with session:', !!session?.user);
+    console.log('useRealTimeStats - fetchStats called with session:', !!session?.user, session?.user);
     
     if (!session?.user) {
       console.log('useRealTimeStats - No session, stopping');
@@ -180,6 +183,7 @@ export function useRealTimeStats() {
 
   // Initial fetch
   useEffect(() => {
+    console.log('useRealTimeStats - Initial fetch useEffect triggered');
     fetchStats();
   }, [fetchStats]);
 

@@ -8,19 +8,21 @@ export const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
     // Client-side detection
     const isDev = 
-      window.location.hostname === 'localhost' || 
-      window.location.hostname === '127.0.0.1' ||
-      localStorage.getItem('xchangee_force_local_api') === 'true';
+      (window.location.hostname === 'localhost' || 
+       window.location.hostname === '127.0.0.1') &&
+      localStorage.getItem('xchangee_force_local_api') !== 'false';
       
-    if (isDev) {
+    // Only use local API if explicitly forced or we're actually on localhost
+    if (isDev && localStorage.getItem('xchangee_force_local_api') === 'true') {
       return 'http://localhost:3001';
     }
   }
   
-  // Server-side or production
-  return process.env.NODE_ENV === 'development' 
-    ? 'http://localhost:3001'
-    : ''; // Empty string uses current domain for production
+  // Server-side or production - always use current domain unless explicitly local
+  const isExplicitlyLocal = process.env.NODE_ENV === 'development' && 
+    process.env.NEXT_PUBLIC_USE_LOCAL_API === 'true';
+  
+  return isExplicitlyLocal ? 'http://localhost:3001' : '';
 };
 
 export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
@@ -33,15 +35,25 @@ export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
       'Cache-Control': 'no-cache',
       ...options.headers,
     },
+    credentials: 'include', // Include cookies for authentication
     ...options,
   };
 
-  console.log(`🌐 API Call: ${url}`);
+  console.log(`🌐 API Call: ${url}`, {
+    baseUrl,
+    endpoint,
+    hostname: typeof window !== 'undefined' ? window.location.hostname : 'server',
+    forceLocal: typeof window !== 'undefined' ? localStorage.getItem('xchangee_force_local_api') : 'N/A'
+  });
   
   try {
     const response = await fetch(url, defaultOptions);
     
+    console.log(`📡 Response: ${url} - ${response.status} ${response.statusText}`);
+    
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ API Error Response:`, errorText);
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     

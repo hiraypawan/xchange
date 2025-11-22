@@ -639,21 +639,33 @@ console.log('🚀 Xchangee content script fully loaded');
 
 } // End of initialization guard
 
+// Add a clear indicator that content script is loaded
+console.log('🚀 Xchangee content script FULLY LOADED on:', window.location.href);
+console.log('🔧 Content script ready to receive messages from popup');
+
+// Test the message handler immediately
+setTimeout(() => {
+  console.log('📡 Content script self-test: Message handler should be active now');
+}, 1000);
+
 // Message handler for popup communication
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Content script received message from popup:', request.type);
+  console.log('Content script received message from popup:', request.type, 'on URL:', window.location.href);
   
-  switch (request.type) {
-    case 'GET_USER_STATS':
-      handleGetUserStats(sendResponse);
-      break;
-    
-    default:
-      sendResponse({ success: false, error: 'Unknown message type' });
-      break;
+  // Immediately acknowledge we received the message
+  if (request.type === 'GET_USER_STATS') {
+    console.log('Content script: Handling GET_USER_STATS request...');
+    handleGetUserStats(sendResponse);
+    return true; // Keep channel open for async response
   }
   
-  return true; // Keep message channel open for async response
+  // Handle other message types
+  switch (request.type) {
+    default:
+      console.log('Content script: Unknown message type:', request.type);
+      sendResponse({ success: false, error: 'Unknown message type: ' + request.type });
+      return false;
+  }
 });
 
 // Handler to get user stats from the website

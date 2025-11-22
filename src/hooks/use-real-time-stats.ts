@@ -71,69 +71,85 @@ export function useRealTimeStats() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        // Get today's transactions
-        const transactionsResponse = await apiCall('/api/user/transactions?since=' + today.toISOString());
-        const transactionsResult = await transactionsResponse.json();
-        
         let todayEarned = 0;
         let todaySpent = 0;
         let weeklyEarned = 0;
         let previousWeekEarned = 0;
         
-        if (transactionsResult.success) {
-          const transactions = transactionsResult.data;
-          const weekAgo = new Date();
-          weekAgo.setDate(weekAgo.getDate() - 7);
-          const twoWeeksAgo = new Date();
-          twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+        // Get today's transactions (with error handling)
+        try {
+          const transactionsResponse = await apiCall('/api/user/transactions?since=' + today.toISOString());
           
-          transactions.forEach((tx: any) => {
-            const txDate = new Date(tx.createdAt);
+          if (transactionsResponse.ok) {
+            const transactionsResult = await transactionsResponse.json();
             
-            // Today's stats
-            if (txDate >= today) {
-              if (tx.type === 'earn') {
-                todayEarned += tx.amount;
-              } else {
-                todaySpent += tx.amount;
-              }
+            if (transactionsResult.success && transactionsResult.data) {
+              const transactions = transactionsResult.data;
+              const weekAgo = new Date();
+              weekAgo.setDate(weekAgo.getDate() - 7);
+              const twoWeeksAgo = new Date();
+              twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+              
+              transactions.forEach((tx: any) => {
+                const txDate = new Date(tx.createdAt);
+                
+                // Today's stats
+                if (txDate >= today) {
+                  if (tx.type === 'earn') {
+                    todayEarned += tx.amount;
+                  } else {
+                    todaySpent += tx.amount;
+                  }
+                }
+                
+                // Weekly stats for percentage calculation
+                if (txDate >= weekAgo) {
+                  if (tx.type === 'earn') weeklyEarned += tx.amount;
+                } else if (txDate >= twoWeeksAgo) {
+                  if (tx.type === 'earn') previousWeekEarned += tx.amount;
+                }
+              });
             }
-            
-            // Weekly stats for percentage calculation
-            if (txDate >= weekAgo) {
-              if (tx.type === 'earn') weeklyEarned += tx.amount;
-            } else if (txDate >= twoWeeksAgo) {
-              if (tx.type === 'earn') previousWeekEarned += tx.amount;
-            }
-          });
+          }
+        } catch (transactionError) {
+          console.warn('Failed to fetch transactions for today stats:', transactionError);
+          // Continue with default values (0s)
         }
         
         const weeklyChange = previousWeekEarned > 0 
           ? ((weeklyEarned - previousWeekEarned) / previousWeekEarned) * 100 
           : 0;
 
-        // Get engagement breakdown
-        const engagementsResponse = await fetch('/api/user/engagements');
-        const engagementsResult = await engagementsResponse.json();
-        
+        // Get engagement breakdown (with error handling)
         let engagementBreakdown = { likes: 0, retweets: 0, replies: 0, follows: 0 };
-        if (engagementsResult.success) {
-          engagementsResult.data.forEach((engagement: any) => {
-            switch (engagement.type) {
-              case 'like':
-                engagementBreakdown.likes++;
-                break;
-              case 'retweet':
-                engagementBreakdown.retweets++;
-                break;
-              case 'reply':
-                engagementBreakdown.replies++;
-                break;
-              case 'follow':
-                engagementBreakdown.follows++;
-                break;
+        try {
+          const engagementsResponse = await apiCall('/api/user/engagements');
+          
+          if (engagementsResponse.ok) {
+            const engagementsResult = await engagementsResponse.json();
+            
+            if (engagementsResult.success && engagementsResult.data) {
+              engagementsResult.data.forEach((engagement: any) => {
+                switch (engagement.type) {
+                  case 'like':
+                    engagementBreakdown.likes++;
+                    break;
+                  case 'retweet':
+                    engagementBreakdown.retweets++;
+                    break;
+                  case 'reply':
+                    engagementBreakdown.replies++;
+                    break;
+                  case 'follow':
+                    engagementBreakdown.follows++;
+                    break;
+                }
+              });
             }
-          });
+          }
+        } catch (engagementError) {
+          console.warn('Failed to fetch engagements for breakdown:', engagementError);
+          // Continue with default values (0s)
         }
 
         setStats({

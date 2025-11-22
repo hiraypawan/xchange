@@ -281,6 +281,12 @@ async function updatePopupData() {
   try {
     console.log('📊 CONTENT: Updating popup data...');
     
+    // Check if extension context is still valid
+    if (!chrome.storage || !chrome.storage.local) {
+      console.log('⚠️ Extension context invalidated, stopping popup data update');
+      return;
+    }
+    
     // Clear any fake/invalid authentication first
     await clearInvalidAuth();
     
@@ -318,6 +324,14 @@ async function updatePopupData() {
     console.log('✅ CONTENT: Updated popup data:', popupData);
     
   } catch (error) {
+    if (error.message && error.message.includes('Extension context invalidated')) {
+      console.log('⚠️ Extension context invalidated during popup data update - stopping');
+      // Stop all intervals to prevent further errors
+      if (typeof updateInterval !== 'undefined') {
+        clearInterval(updateInterval);
+      }
+      return;
+    }
     console.error('❌ CONTENT: Failed to update popup data:', error);
   }
 }
@@ -595,6 +609,12 @@ async function detectAuthFromPage() {
 
 async function clearInvalidAuth() {
   try {
+    // Check if extension context is still valid
+    if (!chrome.storage || !chrome.storage.local) {
+      console.log('⚠️ Extension context invalidated, skipping auth clear');
+      return;
+    }
+    
     const authData = await chrome.storage.local.get(['xchangeeToken', 'xchangeeUser']);
     
     // Clear if token is 'detected' (fake) or user is generic
@@ -606,6 +626,10 @@ async function clearInvalidAuth() {
       popupData.user = null;
     }
   } catch (error) {
+    if (error.message && error.message.includes('Extension context invalidated')) {
+      console.log('⚠️ Extension context invalidated during auth clear - ignoring');
+      return;
+    }
     console.error('Error clearing invalid auth:', error);
   }
 }
@@ -930,8 +954,15 @@ updatePopupData();
 notifyDashboardConnection();
 
 // Update popup data periodically with error handling
-setInterval(() => {
+const updateInterval = setInterval(() => {
   try {
+    // Check if extension context is still valid
+    if (!chrome.storage || !chrome.storage.local) {
+      console.log('⚠️ Extension context invalidated, stopping periodic updates');
+      clearInterval(updateInterval);
+      return;
+    }
+    
     updatePopupData();
     notifyDashboardConnection(); // Keep dashboard updated
     if (popupData.stats.isAutoEngageActive) {
@@ -940,7 +971,7 @@ setInterval(() => {
   } catch (error) {
     if (error.message && error.message.includes('Extension context invalidated')) {
       console.log('⚠️ Extension context invalidated, stopping periodic updates');
-      clearInterval(this);
+      clearInterval(updateInterval);
     } else {
       console.error('Error in periodic update:', error);
     }

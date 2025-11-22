@@ -10,9 +10,11 @@ import {
   Shield,
   CreditCard,
 } from 'lucide-react';
+import { useRealTimeStats } from '@/hooks/use-real-time-stats';
 
 export default function ProfilePage() {
   const { data: session } = useSession();
+  const { data: stats, isLoading: isLoadingStats, error: statsError } = useRealTimeStats();
   const [settings, setSettings] = useState({
     autoEngage: false,
     emailNotifications: true,
@@ -108,19 +110,27 @@ export default function ProfilePage() {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Credits</span>
-                <span className="font-medium">{session?.user?.credits || 0}</span>
+                <span className="font-medium">
+                  {isLoadingStats ? 'Loading...' : (stats?.credits || 0)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Total Earned</span>
-                <span className="font-medium">0</span>
+                <span className="font-medium">
+                  {isLoadingStats ? 'Loading...' : (stats?.totalEarned || 0)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Total Spent</span>
-                <span className="font-medium">0</span>
+                <span className="font-medium">
+                  {isLoadingStats ? 'Loading...' : (stats?.totalSpent || 0)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Success Rate</span>
-                <span className="font-medium">0%</span>
+                <span className="font-medium">
+                  {isLoadingStats ? 'Loading...' : `${stats?.successRate || 0}%`}
+                </span>
               </div>
             </div>
           </div>

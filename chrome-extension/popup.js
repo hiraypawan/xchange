@@ -57,15 +57,18 @@ function setupEventListeners() {
 
 async function loadUserData() {
   try {
-    // Get user data and settings from storage
-    const data = await chrome.storage.local.get(['userData', 'settings']);
-    currentUser = data.userData;
-    currentSettings = data.settings;
+    // First get cached data for immediate display
+    const cachedData = await chrome.storage.local.get(['userData', 'settings']);
+    currentUser = cachedData.userData;
+    currentSettings = cachedData.settings;
     
-    // Update UI with user data
+    // Update UI with cached data first
     if (currentUser) {
       updateUserInfo();
     }
+    
+    // Then fetch fresh data from API
+    await fetchFreshUserData();
     
     // Load opportunities
     await loadOpportunities();
@@ -75,6 +78,50 @@ async function loadUserData() {
     
   } catch (error) {
     console.error('Failed to load user data:', error);
+  }
+}
+
+async function fetchFreshUserData() {
+  try {
+    // Get current tab to access cookies
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    // Fetch fresh user stats from API
+    const response = await fetch('https://xchangee.vercel.app/api/user/stats', {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      if (result.success && result.data) {
+        // Update user data with fresh stats
+        const freshUserData = {
+          ...currentUser,
+          credits: result.data.credits,
+          totalEarned: result.data.totalEarned,
+          totalSpent: result.data.totalSpent,
+          successRate: result.data.successRate
+        };
+        
+        // Update current user and storage
+        currentUser = freshUserData;
+        await chrome.storage.local.set({ userData: freshUserData });
+        
+        // Update UI with fresh data
+        updateUserInfo();
+        
+        console.log('Fresh user data loaded:', freshUserData.credits, 'credits');
+      }
+    } else {
+      console.warn('Failed to fetch fresh user data:', response.status);
+    }
+  } catch (error) {
+    console.warn('Failed to fetch fresh user data:', error);
+    // Continue with cached data
   }
 }
 
@@ -237,12 +284,8 @@ async function handleEngageClick(opportunity) {
     if (response.success) {
       showNotification(`+${opportunity.creditsRequired} credits earned!`, 'success');
       
-      // Update user credits
-      if (currentUser) {
-        currentUser.credits = (currentUser.credits || 0) + opportunity.creditsRequired;
-        await chrome.storage.local.set({ userData: currentUser });
-        updateUserInfo();
-      }
+      // Fetch fresh user data to get accurate credits
+      await fetchFreshUserData();
       
       // Refresh opportunities
       await loadOpportunities();

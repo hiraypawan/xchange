@@ -4,9 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Bell, Search, Plus, Download, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useRealTimeStats } from '@/hooks/use-real-time-stats';
 
 export default function DashboardHeader() {
   const { data: session } = useSession();
+  const { stats, isLoading: isLoadingStats } = useRealTimeStats();
   const [extensionStatus, setExtensionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
   const [showExtensionDropdown, setShowExtensionDropdown] = useState(false);
   const [extensionVersion, setExtensionVersion] = useState<string>('');
@@ -316,7 +318,7 @@ export default function DashboardHeader() {
             <div className="flex items-center space-x-2 bg-primary-50 px-3 py-1 rounded-full">
               <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
               <span className="text-sm font-medium text-primary-700">
-                {session?.user?.credits || 0} credits
+                {isLoadingStats ? 'Loading...' : `${stats?.credits || 0} credits`}
               </span>
             </div>
 

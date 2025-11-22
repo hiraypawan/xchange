@@ -14,7 +14,7 @@ import { useRealTimeStats } from '@/hooks/use-real-time-stats';
 
 export default function ProfilePage() {
   const { data: session } = useSession();
-  const { data: stats, isLoading: isLoadingStats, error: statsError } = useRealTimeStats();
+  const { stats, isLoading: isLoadingStats, error: statsError } = useRealTimeStats();
   const [settings, setSettings] = useState({
     autoEngage: false,
     emailNotifications: true,

@@ -9,8 +9,7 @@ const nextConfig = {
     ],
   },
   experimental: {
-    // Suppress hydration warnings in development
-    suppressHydrationWarning: true,
+    // Add experimental features here if needed
   },
   compiler: {
     // Remove console.logs in production

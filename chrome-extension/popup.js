@@ -88,15 +88,25 @@ async function fetchFreshUserData() {
     // Get current tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
-    // Only fetch if we're on the Xchangee website
+    // Try to find Xchangee website tab, or use active tab if it's Xchangee
+    let xchangeeTab = tab;
     if (!tab.url || !tab.url.includes('xchangee.vercel.app')) {
-      console.log('Not on Xchangee website, using cached data');
-      return;
+      console.log('Active tab is not Xchangee, looking for Xchangee tabs...');
+      
+      // Look for any open Xchangee tabs
+      const allTabs = await chrome.tabs.query({ url: '*://xchangee.vercel.app/*' });
+      if (allTabs.length > 0) {
+        xchangeeTab = allTabs[0];
+        console.log('Found Xchangee tab:', xchangeeTab.url);
+      } else {
+        console.log('No Xchangee website tabs found, using cached data');
+        return;
+      }
     }
     
     // Send message to content script to fetch user data
     try {
-      const response = await chrome.tabs.sendMessage(tab.id, {
+      const response = await chrome.tabs.sendMessage(xchangeeTab.id, {
         type: 'GET_USER_STATS'
       });
       
@@ -141,6 +151,14 @@ function updateUserInfo() {
   
   if (currentUser) {
     userNameEl.textContent = currentUser.displayName || currentUser.username;
+    
+    console.log('Extension popup - updating credits display:', {
+      credits: currentUser.credits,
+      creditsType: typeof currentUser.credits,
+      fallbackValue: currentUser.credits || 0,
+      fullUser: currentUser
+    });
+    
     userCreditsEl.textContent = `${currentUser.credits || 0} credits`;
     
     if (currentUser.avatar) {

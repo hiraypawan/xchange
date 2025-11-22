@@ -478,24 +478,25 @@ async function detectAuthFromPage() {
         '.text-2xl, .text-xl, .font-bold'
       ];
     
-    for (const selector of userSelectors) {
-      const elements = document.querySelectorAll(selector);
-      for (const el of elements) {
-        const text = el.textContent?.trim();
-        if (text && 
-            text.length > 0 && 
-            text.length < 50 && 
-            !text.includes('credits') && 
-            !text.includes('$') &&
-            !text.includes('Welcome') &&
-            !text.includes('Dashboard') &&
-            /^[a-zA-Z\s@._-]+$/.test(text)) {
-          realUserName = text;
-          console.log('✅ Found real user name:', realUserName);
-          break;
+      for (const selector of userSelectors) {
+        const elements = document.querySelectorAll(selector);
+        for (const el of elements) {
+          const text = el.textContent?.trim();
+          if (text && 
+              text.length > 0 && 
+              text.length < 50 && 
+              !text.includes('credits') && 
+              !text.includes('$') &&
+              !text.includes('Welcome') &&
+              !text.includes('Dashboard') &&
+              /^[a-zA-Z\s@._-]+$/.test(text)) {
+            realUserName = text;
+            console.log('✅ Found real user name:', realUserName);
+            break;
+          }
         }
+        if (realUserName) break;
       }
-      if (realUserName) break;
     }
     
     // Look for credits with stricter validation

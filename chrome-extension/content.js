@@ -578,24 +578,70 @@ async function detectAuthFromPage() {
         xchangeeToken: 'page_authenticated'
       });
       
-      // Try to find user profile image
+      // Try to find user profile image with more comprehensive search
+      console.log('🔍 Searching for profile image...');
       const imageSelectors = [
         'img[class*="avatar"]',
         'img[class*="profile"]', 
         'img[class*="user"]',
+        'img[alt*="profile"]',
+        'img[alt*="avatar"]',
+        'img[alt*="user"]',
         '[class*="avatar"] img',
-        '[class*="profile"] img'
+        '[class*="profile"] img',
+        '.rounded-full img', // Common Tailwind avatar class
+        '.rounded-circle img', // Bootstrap avatar class
+        'img[src*="avatar"]',
+        'img[src*="profile"]'
       ];
       
       let userImage = null;
+      
+      // First, try specific selectors
       for (const selector of imageSelectors) {
-        const img = document.querySelector(selector);
-        if (img && img.src && !img.src.includes('placeholder') && !img.src.includes('default')) {
-          userImage = img.src;
-          console.log('✅ Found user profile image:', userImage);
-          break;
+        try {
+          const img = document.querySelector(selector);
+          if (img && img.src && img.src.startsWith('http') && 
+              !img.src.includes('placeholder') && 
+              !img.src.includes('default') &&
+              !img.src.includes('icon') &&
+              img.width > 20 && img.height > 20) { // Must be reasonable size
+            userImage = img.src;
+            console.log('✅ Found user profile image via selector:', selector, userImage);
+            break;
+          }
+        } catch (e) {
+          // Selector might be invalid, continue
         }
       }
+      
+      // If no image found, search all images for profile-like ones
+      if (!userImage) {
+        console.log('🔍 Searching all images for profile picture...');
+        const allImages = document.querySelectorAll('img');
+        for (const img of allImages) {
+          if (img.src && img.src.startsWith('http') && 
+              !img.src.includes('icon') &&
+              !img.src.includes('logo') &&
+              !img.src.includes('placeholder') &&
+              img.width > 30 && img.height > 30 && 
+              img.width < 200 && img.height < 200) { // Profile pic size range
+            userImage = img.src;
+            console.log('✅ Found potential profile image:', userImage);
+            break;
+          }
+        }
+      }
+      
+      // Log all images for debugging
+      const allImgs = Array.from(document.querySelectorAll('img')).map(img => ({
+        src: img.src,
+        width: img.width,
+        height: img.height,
+        alt: img.alt,
+        className: img.className
+      }));
+      console.log('🔍 All images on page:', allImgs.slice(0, 10));
       
       // Update user data with image
       if (userImage) {
@@ -998,13 +1044,35 @@ console.log('🔌 ENHANCED CONTENT: Initializing with popup management...');
 function notifyDashboardConnection() {
   try {
     if (window.location.hostname.includes('xchangee')) {
-      // Send message to dashboard that extension is connected
-      window.postMessage({
+      // Send multiple message types to ensure dashboard receives notification
+      const connectionData = {
         type: 'XCHANGEE_EXTENSION_CONNECTED',
         version: '2.0',
-        timestamp: Date.now()
-      }, '*');
-      console.log('📡 CONTENT: Notified dashboard of extension connection');
+        timestamp: Date.now(),
+        isAuthenticated: popupData.isAuthenticated,
+        userAgent: 'Xchangee Chrome Extension',
+        status: 'active'
+      };
+      
+      // Method 1: postMessage
+      window.postMessage(connectionData, '*');
+      
+      // Method 2: Try to call dashboard function directly if available
+      if (window.setExtensionConnected) {
+        window.setExtensionConnected(true);
+      }
+      
+      // Method 3: Set a global flag
+      window.XCHANGEE_EXTENSION_ACTIVE = true;
+      window.XCHANGEE_EXTENSION_DATA = connectionData;
+      
+      // Method 4: Dispatch custom event
+      window.dispatchEvent(new CustomEvent('xchangeeExtensionConnected', {
+        detail: connectionData
+      }));
+      
+      console.log('📡 CONTENT: Notified dashboard of extension connection via multiple methods');
+      console.log('📡 Connection data:', connectionData);
     }
   } catch (error) {
     console.error('Error notifying dashboard:', error);
@@ -1016,6 +1084,23 @@ updatePopupData();
 // Notify dashboard immediately and periodically
 notifyDashboardConnection();
 
+// More frequent dashboard notifications to ensure "connected" status
+const dashboardNotificationInterval = setInterval(() => {
+  try {
+    if (!chrome.storage || !chrome.storage.local) {
+      console.log('⚠️ Extension context invalidated, stopping dashboard notifications');
+      clearInterval(dashboardNotificationInterval);
+      return;
+    }
+    notifyDashboardConnection();
+  } catch (error) {
+    if (error.message && error.message.includes('Extension context invalidated')) {
+      console.log('⚠️ Extension context invalidated, stopping dashboard notifications');
+      clearInterval(dashboardNotificationInterval);
+    }
+  }
+}, 5000); // Every 5 seconds for dashboard connection status
+
 // Update popup data periodically with error handling
 const updateInterval = setInterval(() => {
   try {
@@ -1023,6 +1108,7 @@ const updateInterval = setInterval(() => {
     if (!chrome.storage || !chrome.storage.local) {
       console.log('⚠️ Extension context invalidated, stopping periodic updates');
       clearInterval(updateInterval);
+      clearInterval(dashboardNotificationInterval);
       return;
     }
     
@@ -1035,6 +1121,7 @@ const updateInterval = setInterval(() => {
     if (error.message && error.message.includes('Extension context invalidated')) {
       console.log('⚠️ Extension context invalidated, stopping periodic updates');
       clearInterval(updateInterval);
+      clearInterval(dashboardNotificationInterval);
     } else {
       console.error('Error in periodic update:', error);
     }

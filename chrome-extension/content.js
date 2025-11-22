@@ -1130,35 +1130,45 @@ console.log('🔌 ENHANCED CONTENT: Initializing with popup management...');
 function notifyDashboardConnection() {
   try {
     if (window.location.hostname.includes('xchangee')) {
-      // Send multiple message types to ensure dashboard receives notification
+      // Send the specific message types the dashboard expects
       const connectionData = {
-        type: 'XCHANGEE_EXTENSION_CONNECTED',
+        type: 'XCHANGEE_EXTENSION_RESPONSE',
+        source: 'extension',
         version: '2.0',
         timestamp: Date.now(),
         isAuthenticated: popupData.isAuthenticated,
+        isInstalled: true,
         userAgent: 'Xchangee Chrome Extension',
         status: 'active'
       };
       
-      // Method 1: postMessage
+      const heartbeatData = {
+        type: 'XCHANGEE_EXTENSION_HEARTBEAT',
+        source: 'extension',
+        version: '2.0',
+        timestamp: Date.now(),
+        isAuthenticated: popupData.isAuthenticated,
+        isInstalled: true,
+        status: 'active'
+      };
+      
+      // Send both message types the dashboard listens for
       window.postMessage(connectionData, '*');
+      window.postMessage(heartbeatData, '*');
       
-      // Method 2: Try to call dashboard function directly if available
-      if (window.setExtensionConnected) {
-        window.setExtensionConnected(true);
-      }
+      // Also send the original message for backward compatibility
+      window.postMessage({
+        type: 'XCHANGEE_EXTENSION_CONNECTED',
+        ...connectionData
+      }, '*');
       
-      // Method 3: Set a global flag
+      // Set global flags for additional detection methods
       window.XCHANGEE_EXTENSION_ACTIVE = true;
       window.XCHANGEE_EXTENSION_DATA = connectionData;
       
-      // Method 4: Dispatch custom event
-      window.dispatchEvent(new CustomEvent('xchangeeExtensionConnected', {
-        detail: connectionData
-      }));
-      
-      console.log('📡 CONTENT: Notified dashboard of extension connection via multiple methods');
-      console.log('📡 Connection data:', connectionData);
+      console.log('📡 CONTENT: Sent dashboard connection notifications');
+      console.log('📡 Response data:', connectionData);
+      console.log('📡 Heartbeat data:', heartbeatData);
     }
   } catch (error) {
     console.error('Error notifying dashboard:', error);
@@ -1227,6 +1237,30 @@ document.addEventListener('visibilitychange', () => {
       notifyDashboardConnection();
       updatePopupData();
     }, 1000);
+  }
+});
+
+// Listen for dashboard extension check messages
+window.addEventListener('message', (event) => {
+  if (event.data?.type === 'XCHANGEE_EXTENSION_CHECK' && event.data?.source === 'website') {
+    console.log('📡 CONTENT: Dashboard checking extension status, responding...');
+    
+    // Respond immediately with extension status
+    const responseData = {
+      type: 'XCHANGEE_EXTENSION_RESPONSE',
+      source: 'extension',
+      version: '2.0',
+      timestamp: Date.now(),
+      isAuthenticated: popupData.isAuthenticated,
+      isInstalled: true,
+      status: 'active'
+    };
+    
+    // Send response after a small delay to ensure dashboard is listening
+    setTimeout(() => {
+      window.postMessage(responseData, '*');
+      console.log('📡 CONTENT: Sent extension status response:', responseData);
+    }, 100);
   }
 });
 

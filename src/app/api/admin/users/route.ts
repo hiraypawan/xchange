@@ -17,97 +17,74 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Mock data for now - replace with actual database queries
-    const users = [
-      {
-        id: '1',
-        name: 'John Doe',
-        email: 'john@example.com',
-        image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
-        credits: 25,
-        createdAt: '2024-01-15T10:30:00Z',
-        isBanned: false,
-        totalEarned: 125,
-        totalSpent: 100,
-        engagementCount: 45
-      },
-      {
-        id: '2',
-        name: 'Jane Smith',
-        email: 'jane@example.com',
-        image: 'https://images.unsplash.com/photo-1494790108755-2616b612b789?w=100&h=100&fit=crop&crop=face',
-        credits: 50,
-        createdAt: '2024-01-20T14:22:00Z',
-        isBanned: false,
-        totalEarned: 200,
-        totalSpent: 150,
-        engagementCount: 78
-      },
-      {
-        id: '3',
-        name: 'Mike Johnson',
-        email: 'mike@example.com',
-        image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face',
-        credits: 10,
-        createdAt: '2024-02-01T09:15:00Z',
-        isBanned: true,
-        totalEarned: 75,
-        totalSpent: 65,
-        engagementCount: 23
-      },
-      {
-        id: '4',
-        name: 'Sarah Wilson',
-        email: 'sarah@example.com',
-        image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face',
-        credits: 75,
-        createdAt: '2024-02-10T16:45:00Z',
-        isBanned: false,
-        totalEarned: 300,
-        totalSpent: 225,
-        engagementCount: 112
-      }
-    ];
+    // Get real users from MongoDB database
+    const { connectToDatabase } = await import('@/lib/mongodb');
+    const { db } = await connectToDatabase();
 
-    // TODO: Replace with actual database query
-    /*
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        image: true,
-        credits: true,
-        createdAt: true,
-        isBanned: true,
-        _count: {
-          select: {
-            engagements: true
-          }
-        },
-        transactions: {
-          select: {
-            amount: true,
-            type: true
+    console.log('👥 Getting real users from database...');
+
+    // Get all users with their credit transactions
+    const usersWithTransactions = await db.collection('users').aggregate([
+      {
+        $lookup: {
+          from: 'credit_transactions',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'transactions'
+        }
+      },
+      {
+        $addFields: {
+          totalEarned: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: '$transactions',
+                    cond: { $gt: ['$$this.amount', 0] }
+                  }
+                },
+                as: 'transaction',
+                in: '$$transaction.amount'
+              }
+            }
+          },
+          totalSpent: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: '$transactions',
+                    cond: { $lt: ['$$this.amount', 0] }
+                  }
+                },
+                as: 'transaction',
+                in: { $abs: '$$transaction.amount' }
+              }
+            }
           }
         }
       },
-      orderBy: {
-        createdAt: 'desc'
+      {
+        $sort: { createdAt: -1 }
       }
-    });
+    ]).toArray();
 
-    const usersWithStats = users.map(user => ({
-      ...user,
-      engagementCount: user._count.engagements,
-      totalEarned: user.transactions
-        .filter(t => t.amount > 0)
-        .reduce((sum, t) => sum + t.amount, 0),
-      totalSpent: user.transactions
-        .filter(t => t.amount < 0)
-        .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+    // Format users for admin interface
+    const users = usersWithTransactions.map(user => ({
+      id: user._id.toString(),
+      name: user.displayName || user.username || 'Unknown User',
+      email: user.email || 'No email',
+      image: user.avatar || user.profileImage || null,
+      credits: user.credits || 0,
+      createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
+      isBanned: user.isBanned || false,
+      totalEarned: user.totalEarned || 0,
+      totalSpent: user.totalSpent || 0,
+      engagementCount: user.engagementCount || 0 // You can add this field later
     }));
-    */
+
+    console.log(`✅ Loaded ${users.length} real users from database`);
 
     return NextResponse.json(users);
   } catch (error) {

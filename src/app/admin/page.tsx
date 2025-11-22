@@ -3,7 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { isAdmin, formatNumber, formatDate, generateMockUsers, generateMockStats, type User, type AdminStats } from '@/lib/admin';
+import { isAdmin, formatNumber, formatDate, type User, type AdminStats } from '@/lib/admin';
 
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
@@ -23,12 +23,11 @@ export default function AdminDashboard() {
   const [filterStatus, setFilterStatus] = useState('all'); // all, active, banned
   const [sortBy, setSortBy] = useState('createdAt'); // createdAt, credits, engagements
 
-  // Check if user is admin - more permissive for testing
+  // Check if user is admin - only Pawan Hiray has access
   const userIsAdmin = session ? (
     isAdmin(session) || 
     session.user?.name?.includes('Pawan') ||
-    session.user?.email?.includes('pawan') ||
-    true // Temporarily allow all authenticated users for testing
+    session.user?.email?.includes('pawan')
   ) : false;
 
   useEffect(() => {
@@ -51,38 +50,37 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
       
-      // Always use mock data for now to ensure it works
-      console.log('Loading admin data...');
+      // Use real API only - no fake data
+      console.log('Loading real admin data from API...');
       
-      // Use mock data to ensure tabs show immediately
-      setTimeout(() => {
-        const mockStats = generateMockStats();
-        const mockUsers = generateMockUsers(25);
-        
-        console.log('Mock data loaded:', { stats: mockStats, userCount: mockUsers.length });
-        
-        setStats(mockStats);
-        setUsers(mockUsers);
-        setLoading(false);
-      }, 500); // Faster loading
-      
-      // Also try real API in background (if available)
-      if (false) { // Disabled for now
-        // Use real API in production
+      try {
         const [statsResponse, usersResponse] = await Promise.all([
           fetch('/api/admin/stats'),
           fetch('/api/admin/users')
         ]);
 
+        let realStats = null;
+        let realUsers = [];
+
         if (statsResponse.ok) {
-          const statsData = await statsResponse.json();
-          setStats(statsData);
+          realStats = await statsResponse.json();
+          setStats(realStats);
+          console.log('✅ Real stats loaded:', realStats);
+        } else {
+          console.error('❌ Failed to load stats:', statsResponse.status);
         }
 
         if (usersResponse.ok) {
-          const usersData = await usersResponse.json();
-          setUsers(usersData);
+          realUsers = await usersResponse.json();
+          setUsers(realUsers);
+          console.log('✅ Real users loaded:', realUsers.length, 'users');
+        } else {
+          console.error('❌ Failed to load users:', usersResponse.status);
         }
+
+        setLoading(false);
+      } catch (error) {
+        console.error('❌ Error loading real data:', error);
         setLoading(false);
       }
     } catch (error) {

@@ -17,41 +17,59 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Mock data for now - replace with actual database queries
+    // Get real data from MongoDB database
+    const { connectToDatabase } = await import('@/lib/mongodb');
+    const { db } = await connectToDatabase();
+
+    console.log('📊 Getting real admin stats from database...');
+
+    // Calculate real statistics
+    const totalUsers = await db.collection('users').countDocuments();
+    
+    // Active users (logged in within last 7 days)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const activeUsers = await db.collection('users').countDocuments({
+      lastLogin: { $gte: sevenDaysAgo }
+    });
+
+    // Total credits in circulation
+    const creditsPipeline = [
+      { $group: { _id: null, totalCredits: { $sum: '$credits' } } }
+    ];
+    const creditsResult = await db.collection('users').aggregate(creditsPipeline).toArray();
+    const totalCredits = creditsResult[0]?.totalCredits || 0;
+
+    // Total engagements (if you have engagements collection)
+    let totalEngagements = 0;
+    try {
+      totalEngagements = await db.collection('engagements').countDocuments();
+    } catch (error) {
+      // Engagements collection might not exist yet
+      console.log('Engagements collection not found, using 0');
+    }
+
+    // Today's signups
+    const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+    const todaySignups = await db.collection('users').countDocuments({
+      createdAt: { $gte: todayStart }
+    });
+
+    // Weekly growth
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const weeklySignups = await db.collection('users').countDocuments({
+      createdAt: { $gte: weekAgo }
+    });
+
     const stats = {
-      totalUsers: 150,
-      activeUsers: 89,
-      totalCredits: 2450,
-      totalEngagements: 1234,
-      todaySignups: 5
+      totalUsers,
+      activeUsers,
+      totalCredits,
+      totalEngagements,
+      todaySignups,
+      weeklyGrowth: weeklySignups
     };
 
-    // TODO: Replace with actual database queries
-    /*
-    const stats = {
-      totalUsers: await prisma.user.count(),
-      activeUsers: await prisma.user.count({
-        where: {
-          lastActive: {
-            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
-          }
-        }
-      }),
-      totalCredits: await prisma.user.aggregate({
-        _sum: {
-          credits: true
-        }
-      }).then(result => result._sum.credits || 0),
-      totalEngagements: await prisma.engagement.count(),
-      todaySignups: await prisma.user.count({
-        where: {
-          createdAt: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0))
-          }
-        }
-      })
-    };
-    */
+    console.log('✅ Real admin stats:', stats);
 
     return NextResponse.json(stats);
   } catch (error) {

@@ -193,7 +193,7 @@ class RemoteLoader {
           console.log('Could not get extension version, continuing without it');
         }
         
-        const response = await fetch(`${this.baseUrl}/extension/core.js?v=${Date.now()}`, {
+        const response = await fetch(`${this.baseUrl}/core.js?v=${Date.now()}`, {
           method: 'GET',
           headers: headers
         });

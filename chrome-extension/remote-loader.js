@@ -6,7 +6,7 @@
 class RemoteLoader {
   constructor() {
     // Use a more realistic base URL that matches your server structure
-    this.baseUrl = 'https://xchangee.vercel.app/api';
+    this.baseUrl = this.getBaseUrl();
     this.cacheKey = 'xchangee_remote_code';
     this.versionKey = 'xchangee_remote_version';
     this.cacheTimeout = 10 * 1000; // 10 second cache for immediate updates
@@ -16,9 +16,64 @@ class RemoteLoader {
   }
 
   /**
+   * Determine the correct base URL for API calls
+   */
+  getBaseUrl() {
+    // Check if we're in development mode
+    const isDevelopment = 
+      window.location.hostname === 'localhost' || 
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname.includes('localhost') ||
+      localStorage.getItem('xchangee_dev_mode') === 'true';
+    
+    if (isDevelopment) {
+      // Try localhost first for development
+      console.log('🔧 RemoteLoader: Using local development server');
+      return 'http://localhost:3001/api/extension-remote';
+    } else {
+      // Use production URL
+      console.log('🌐 RemoteLoader: Using production server');
+      return 'https://xchangee.vercel.app/api/extension-remote';
+    }
+  }
+
+  /**
+   * Test connectivity to both local and production servers
+   */
+  async testConnectivity() {
+    const urls = [
+      'http://localhost:3001/api/extension-remote/version',
+      'http://localhost:3000/api/extension-remote/version',
+      'https://xchangee.vercel.app/api/extension-remote/version'
+    ];
+    
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, { 
+          method: 'HEAD',
+          signal: AbortSignal.timeout(3000) // 3 second timeout
+        });
+        if (response.ok) {
+          console.log(`✅ Server available: ${url}`);
+          const baseUrl = url.replace('/version', '');
+          this.baseUrl = baseUrl;
+          return baseUrl;
+        }
+      } catch (error) {
+        console.log(`❌ Server unavailable: ${url} - ${error.message}`);
+      }
+    }
+    
+    console.log('⚠️ No servers available, using fallback');
+    return null;
+  }
+
+  /**
    * Main loader function - call this to initialize remote code
    */
   async loadRemoteCore() {
+    // Test connectivity first and update base URL if needed
+    await this.testConnectivity();
     console.log('🚀 RemoteLoader: Starting remote core loading...');
     
     // Check extension context first

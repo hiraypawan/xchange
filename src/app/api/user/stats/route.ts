@@ -49,10 +49,38 @@ export async function GET(req: NextRequest) {
     }
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      console.log('User lookup failed with session:', {
+        sessionId: session.user.id,
+        twitterId: session.user.twitterId,
+        email: session.user.email,
+        name: session.user.name
+      });
+      
+      // Try to create user if they don't exist (auto-registration)
+      const newUser = {
+        twitterId: session.user.twitterId,
+        email: session.user.email,
+        name: session.user.name,
+        username: session.user.username || session.user.name,
+        credits: parseInt(process.env.USER_STARTING_CREDITS || '100'),
+        totalEarned: 0,
+        totalSpent: 0,
+        joinedAt: new Date(),
+        lastActive: new Date(),
+        isActive: true
+      };
+      
+      try {
+        const result = await db.collection('users').insertOne(newUser);
+        console.log('Created new user:', result.insertedId);
+        user = { ...newUser, _id: result.insertedId };
+      } catch (createError) {
+        console.error('Failed to create user:', createError);
+        return NextResponse.json(
+          { error: 'User not found and could not be created' },
+          { status: 404 }
+        );
+      }
     }
 
     // Calculate statistics

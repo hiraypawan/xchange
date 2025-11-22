@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { apiCall } from '@/lib/api-config';
 
 interface UserStats {
   credits: number;
@@ -57,11 +58,7 @@ export function useRealTimeStats() {
     }
 
     try {
-      const response = await fetch('/api/user/stats', {
-        headers: {
-          'Cache-Control': 'no-cache',
-        },
-      });
+      const response = await apiCall('/api/user/stats');
 
       if (!response.ok) {
         throw new Error('Failed to fetch stats');
@@ -75,7 +72,7 @@ export function useRealTimeStats() {
         today.setHours(0, 0, 0, 0);
         
         // Get today's transactions
-        const transactionsResponse = await fetch('/api/user/transactions?since=' + today.toISOString());
+        const transactionsResponse = await apiCall('/api/user/transactions?since=' + today.toISOString());
         const transactionsResult = await transactionsResponse.json();
         
         let todayEarned = 0;

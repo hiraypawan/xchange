@@ -8,12 +8,18 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.id) {
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
+
+    console.log('Transactions API - Session check passed:', {
+      userId: session.user.id,
+      twitterId: session.user.twitterId,
+      email: session.user.email
+    });
 
     const { searchParams } = new URL(req.url);
     const since = searchParams.get('since');
@@ -66,8 +72,34 @@ export async function GET(req: NextRequest) {
         twitterId: session.user.twitterId,
         email: session.user.email
       });
+      
+      // Try to find ANY user that matches any of the identifiers for debugging
+      let debugUsers = [];
+      if (session.user.id) {
+        const byId = await db.collection('users').findOne({ twitterId: session.user.id });
+        if (byId) debugUsers.push({ foundBy: 'twitterId=session.user.id', user: byId });
+      }
+      
+      const allUsers = await db.collection('users').find({}).limit(5).toArray();
+      console.log('Recent users in database:', allUsers.map(u => ({
+        _id: u._id,
+        twitterId: u.twitterId,
+        email: u.email,
+        name: u.name
+      })));
+      
+      console.log('Debug user lookups:', debugUsers);
+      
       return NextResponse.json(
-        { error: 'User not found' },
+        { 
+          error: 'User not found',
+          debug: {
+            sessionUserId: session.user.id,
+            sessionTwitterId: session.user.twitterId,
+            sessionEmail: session.user.email,
+            totalUsersFound: debugUsers.length
+          }
+        },
         { status: 404 }
       );
     }

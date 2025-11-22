@@ -265,10 +265,13 @@ async function updatePopupData() {
   try {
     console.log('📊 CONTENT: Updating popup data...');
     
+    // Clear any fake/invalid authentication first
+    await clearInvalidAuth();
+    
     // Check if user is authenticated
     const authData = await chrome.storage.local.get(['xchangeeToken', 'xchangeeUser']);
     
-    if (authData.xchangeeToken && authData.xchangeeUser) {
+    if (authData.xchangeeToken && authData.xchangeeUser && isValidAuthentication(authData)) {
       popupData.isAuthenticated = true;
       popupData.user = authData.xchangeeUser;
       
@@ -305,52 +308,185 @@ async function updatePopupData() {
 
 async function detectAuthFromPage() {
   try {
-    // Look for user data on the page
-    const userNameElements = document.querySelectorAll('[class*="user"], [class*="profile"]');
-    const creditElements = document.querySelectorAll('*');
+    console.log('🔍 CONTENT: Detecting real authentication from Xchangee page...');
     
-    let userName = null;
-    let userCredits = 0;
+    // Reset authentication state first
+    popupData.isAuthenticated = false;
+    popupData.user = null;
     
-    // Try to find user name
-    for (const el of userNameElements) {
-      const text = el.textContent?.trim();
-      if (text && text.length > 0 && !text.includes('$') && !text.includes('credits')) {
-        userName = text;
+    // Look for NextAuth session data or real user indicators
+    // Method 1: Check for NextAuth session in the page
+    if (window.next && window.next.session) {
+      const session = window.next.session;
+      if (session.user) {
+        console.log('✅ Found NextAuth session:', session.user);
+        popupData.isAuthenticated = true;
+        popupData.user = {
+          name: session.user.name,
+          email: session.user.email,
+          image: session.user.image,
+          credits: 0 // Will be updated by updateUserStats
+        };
+        
+        await chrome.storage.local.set({ 
+          xchangeeUser: popupData.user,
+          xchangeeToken: session.accessToken || 'authenticated'
+        });
+        return;
+      }
+    }
+    
+    // Method 2: Look for real authentication indicators in DOM
+    const authIndicators = [
+      'button[class*="sign-out"]',
+      'button[class*="logout"]',
+      '[data-testid*="user"]',
+      '[class*="dashboard"]',
+      'nav[class*="authenticated"]'
+    ];
+    
+    let isReallyAuthenticated = false;
+    for (const selector of authIndicators) {
+      const element = document.querySelector(selector);
+      if (element) {
+        isReallyAuthenticated = true;
+        console.log('✅ Found authentication indicator:', selector);
         break;
       }
     }
     
-    // Try to find credits
-    for (const el of creditElements) {
-      const text = el.textContent?.trim();
-      if (text && text.includes('credits')) {
-        const match = text.match(/(\d+)\s*credits?/i);
-        if (match) {
-          userCredits = parseInt(match[1]);
+    if (!isReallyAuthenticated) {
+      console.log('❌ No real authentication detected on page');
+      return;
+    }
+    
+    // Method 3: Extract real user data from authenticated page
+    let realUserName = null;
+    let realCredits = null;
+    
+    // Look for user name in typical locations
+    const userSelectors = [
+      '[class*="username"]',
+      '[class*="user-name"]', 
+      'h1, h2, h3',
+      '[data-testid*="name"]'
+    ];
+    
+    for (const selector of userSelectors) {
+      const elements = document.querySelectorAll(selector);
+      for (const el of elements) {
+        const text = el.textContent?.trim();
+        if (text && 
+            text.length > 0 && 
+            text.length < 50 && 
+            !text.includes('credits') && 
+            !text.includes('$') &&
+            !text.includes('Welcome') &&
+            !text.includes('Dashboard') &&
+            /^[a-zA-Z\s@._-]+$/.test(text)) {
+          realUserName = text;
+          console.log('✅ Found real user name:', realUserName);
           break;
         }
       }
+      if (realUserName) break;
     }
     
-    if (userName || userCredits > 0) {
+    // Look for credits with stricter validation
+    const creditSelectors = [
+      '[class*="credit"][class*="balance"]',
+      '[data-testid*="credit"]',
+      '.credit-display'
+    ];
+    
+    for (const selector of creditSelectors) {
+      const elements = document.querySelectorAll(selector);
+      for (const el of elements) {
+        const text = el.textContent?.trim();
+        if (text && text.includes('credit')) {
+          const match = text.match(/(\d+)\s*credits?/i);
+          if (match) {
+            realCredits = parseInt(match[1]);
+            console.log('✅ Found real credits:', realCredits);
+            break;
+          }
+        }
+      }
+      if (realCredits !== null) break;
+    }
+    
+    // Only set authentication if we have REAL data
+    if (realUserName && realUserName !== 'User') {
       popupData.isAuthenticated = true;
       popupData.user = {
-        name: userName || 'User',
-        credits: userCredits,
+        name: realUserName,
+        credits: realCredits || 0,
         image: null
       };
       
-      // Save detected user data
       await chrome.storage.local.set({ 
         xchangeeUser: popupData.user,
-        xchangeeToken: 'detected' 
+        xchangeeToken: 'page_authenticated'
       });
+      
+      console.log('✅ Real authentication detected and saved');
+    } else {
+      console.log('❌ No valid user data found - keeping unauthenticated state');
     }
     
   } catch (error) {
-    console.error('Failed to detect auth from page:', error);
+    console.error('❌ Failed to detect auth from page:', error);
+    popupData.isAuthenticated = false;
+    popupData.user = null;
   }
+}
+
+async function clearInvalidAuth() {
+  try {
+    const authData = await chrome.storage.local.get(['xchangeeToken', 'xchangeeUser']);
+    
+    // Clear if token is 'detected' (fake) or user is generic
+    if (authData.xchangeeToken === 'detected' || 
+        (authData.xchangeeUser && authData.xchangeeUser.name === 'User')) {
+      console.log('🧹 CONTENT: Clearing invalid/fake authentication');
+      await chrome.storage.local.remove(['xchangeeToken', 'xchangeeUser']);
+      popupData.isAuthenticated = false;
+      popupData.user = null;
+    }
+  } catch (error) {
+    console.error('Error clearing invalid auth:', error);
+  }
+}
+
+function isValidAuthentication(authData) {
+  // Check if authentication data is real and valid
+  if (!authData.xchangeeUser || !authData.xchangeeToken) {
+    return false;
+  }
+  
+  const user = authData.xchangeeUser;
+  const token = authData.xchangeeToken;
+  
+  // Invalid tokens
+  if (token === 'detected' || token === 'fake' || token === 'test') {
+    console.log('❌ Invalid token detected:', token);
+    return false;
+  }
+  
+  // Invalid user data
+  if (!user.name || user.name === 'User' || user.name === 'Unknown' || user.name === 'Test User') {
+    console.log('❌ Invalid user name detected:', user.name);
+    return false;
+  }
+  
+  // User name too generic or suspicious
+  if (user.name.length < 2 || /^(user|test|demo|example)/i.test(user.name)) {
+    console.log('❌ Suspicious user name detected:', user.name);
+    return false;
+  }
+  
+  console.log('✅ Authentication data is valid');
+  return true;
 }
 
 async function updateUserStats() {
@@ -604,18 +740,53 @@ async function handleCheckAuthStatus(sendResponse) {
 
 // Initialize popup data on load
 console.log('🔌 ENHANCED CONTENT: Initializing with popup management...');
+
+// Send connection status to dashboard (for "extension connected" indicator)
+function notifyDashboardConnection() {
+  try {
+    if (window.location.hostname.includes('xchangee')) {
+      // Send message to dashboard that extension is connected
+      window.postMessage({
+        type: 'XCHANGEE_EXTENSION_CONNECTED',
+        version: '2.0',
+        timestamp: Date.now()
+      }, '*');
+      console.log('📡 CONTENT: Notified dashboard of extension connection');
+    }
+  } catch (error) {
+    console.error('Error notifying dashboard:', error);
+  }
+}
+
 updatePopupData();
+
+// Notify dashboard immediately and periodically
+notifyDashboardConnection();
 
 // Update popup data periodically
 setInterval(() => {
   updatePopupData();
+  notifyDashboardConnection(); // Keep dashboard updated
   if (popupData.stats.isAutoEngageActive) {
     sendPopupUpdate(); // Send updates to popup when auto-engage is active
   }
 }, 30000); // Every 30 seconds
 
 // Check auth status when page loads
-setTimeout(updatePopupData, 2000); // Delay to let page load
+setTimeout(() => {
+  updatePopupData();
+  notifyDashboardConnection();
+}, 2000); // Delay to let page load
+
+// Also notify on page visibility change
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    setTimeout(() => {
+      notifyDashboardConnection();
+      updatePopupData();
+    }, 1000);
+  }
+});
 
 let isProcessing = false;
 let observer = null;

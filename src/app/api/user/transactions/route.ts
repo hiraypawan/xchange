@@ -90,18 +90,17 @@ export async function GET(req: NextRequest) {
       
       console.log('Debug user lookups:', debugUsers);
       
-      return NextResponse.json(
-        { 
-          error: 'User not found',
-          debug: {
-            sessionUserId: session.user.id,
-            sessionTwitterId: session.user.twitterId,
-            sessionEmail: session.user.email,
-            totalUsersFound: debugUsers.length
-          }
-        },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: true,
+        data: [],
+        message: 'No transactions - user needs setup',
+        debug: {
+          sessionUserId: session.user.id,
+          sessionTwitterId: session.user.twitterId,
+          sessionEmail: session.user.email,
+          needsUserSetup: true
+        }
+      });
     }
 
     // Build query with both possible userId formats for compatibility

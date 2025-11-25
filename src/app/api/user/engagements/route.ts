@@ -65,10 +65,17 @@ export async function GET(req: NextRequest) {
         twitterId: session.user.twitterId,
         email: session.user.email
       });
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: true,
+        data: [],
+        message: 'No engagements - user needs setup',
+        debug: {
+          sessionUserId: session.user.id,
+          sessionTwitterId: session.user.twitterId,
+          sessionEmail: session.user.email,
+          needsUserSetup: true
+        }
+      });
     }
 
     // Build query with both possible userId formats for compatibility

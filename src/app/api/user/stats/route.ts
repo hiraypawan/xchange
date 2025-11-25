@@ -139,6 +139,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Calculate statistics - use both possible userId formats for compatibility
+    const { db } = await connectToDatabase();
     const userIdQueries = [user._id.toString()];
     if (user.twitterId) {
       userIdQueries.push(user.twitterId);

@@ -63,7 +63,11 @@ export async function POST(request: NextRequest) {
       const duplicates = await db.collection('users').aggregate([
         {
           $match: {
-            twitterId: { $exists: true, $ne: null, $ne: '' }
+            $and: [
+              { twitterId: { $exists: true } },
+              { twitterId: { $ne: null } },
+              { twitterId: { $ne: "" } }
+            ]
           }
         },
         {

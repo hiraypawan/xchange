@@ -4,7 +4,15 @@ import { authOptions } from '@/lib/auth';
 import { UserManager } from '@/lib/user-management';
 
 // Check if user is admin
-function isAdmin(session: any) {
+function isAdmin(session: any, password?: string) {
+  const adminPassword = 'Fæ7猫!RΦ9e@Z';
+  
+  // Check if admin password is provided
+  if (password === adminPassword) {
+    return true;
+  }
+  
+  // Fallback to user-based admin check
   return session?.user?.email === 'your-email@example.com' || 
          session?.user?.name === 'Pawan Hiray' ||
          session?.user?.id === 'your-twitter-user-id' ||
@@ -14,10 +22,15 @@ function isAdmin(session: any) {
 
 export async function POST(request: NextRequest) {
   try {
+    const body = await request.json().catch(() => ({}));
+    const { adminPassword } = body;
+    
     const session = await getServerSession(authOptions);
     
-    if (!session || !isAdmin(session)) {
-      return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 401 });
+    if (!isAdmin(session, adminPassword)) {
+      return NextResponse.json({ 
+        error: 'Unauthorized - Admin access required. Please provide admin password.' 
+      }, { status: 401 });
     }
 
     console.log('🧹 Admin initiated duplicate cleanup:', session.user?.name);
@@ -58,10 +71,15 @@ export async function POST(request: NextRequest) {
 // GET endpoint to check for duplicates without removing them
 export async function GET(request: NextRequest) {
   try {
+    const url = new URL(request.url);
+    const adminPassword = url.searchParams.get('adminPassword');
+    
     const session = await getServerSession(authOptions);
     
-    if (!session || !isAdmin(session)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!isAdmin(session, adminPassword || undefined)) {
+      return NextResponse.json({ 
+        error: 'Unauthorized - Admin access required. Please provide admin password.' 
+      }, { status: 401 });
     }
 
     const { connectToDatabase } = await import('@/lib/mongodb');

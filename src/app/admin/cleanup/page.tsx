@@ -9,6 +9,8 @@ export default function AdminCleanupPage() {
   const [indexResult, setIndexResult] = useState<any>(null);
   const [previewResult, setPreviewResult] = useState<any>(null);
   const [loading, setLoading] = useState<string | null>(null);
+  const [adminPassword, setAdminPassword] = useState<string>('');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   // Check if user is admin (you may want to update this logic)
   const isAdmin = session?.user?.email?.toLowerCase().includes('pawan') || 

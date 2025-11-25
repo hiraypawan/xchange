@@ -15,7 +15,9 @@ interface TwitterProfile extends Profile {
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: MongoDBAdapter(clientPromise),
+  // Remove MongoDB adapter to prevent automatic user creation
+  // We'll handle user creation manually to prevent duplicates
+  // adapter: MongoDBAdapter(clientPromise),
   providers: [
     TwitterProvider({
       clientId: process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID!,
@@ -35,42 +37,62 @@ export const authOptions: NextAuthOptions = {
   //   error: '/auth/error',
   // },
   session: {
-    strategy: 'database',
+    strategy: 'jwt', // Use JWT since we removed database adapter
     maxAge: 7 * 24 * 60 * 60, // 7 days
     updateAge: 24 * 60 * 60, // 1 day
   },
   callbacks: {
     async signIn({ user, account, profile }) {
       try {
+        console.log('🔐 SIGNIN ATTEMPT:', {
+          provider: account?.provider,
+          userName: user.name,
+          userEmail: user.email,
+          profileId: (profile as TwitterProfile)?.id
+        });
+
         if (account?.provider === 'twitter' && profile) {
           const { db } = await connectToDatabase();
           const twitterProfile = profile as TwitterProfile;
           
-          // MORE COMPREHENSIVE duplicate checking
+          console.log('🔍 CHECKING FOR EXISTING USER...', {
+            twitterId: twitterProfile.id,
+            name: twitterProfile.name,
+            username: twitterProfile.username
+          });
+
+          // COMPREHENSIVE duplicate checking - check MULTIPLE ways to identify same user
           const existingUser = await db.collection('users').findOne({
             $or: [
-              { twitterId: twitterProfile.id },
-              { email: user.email },
-              // Also check by name and profile URL for additional safety
+              { twitterId: twitterProfile.id }, // Primary: Same Twitter ID
               { 
                 $and: [
                   { displayName: twitterProfile.name },
                   { username: twitterProfile.username }
                 ]
-              }
+              }, // Secondary: Same name AND username
+              {
+                $and: [
+                  { email: user.email },
+                  { email: { $ne: null } },
+                  { email: { $ne: '' } }
+                ]
+              } // Tertiary: Same email if available
             ]
           });
 
           if (existingUser) {
-            console.log('✅ DUPLICATE PREVENTED: Existing user found:', {
+            console.log('🚫 DUPLICATE PREVENTED - EXISTING USER FOUND:', {
               existingId: existingUser._id,
-              twitterId: twitterProfile.id,
-              name: twitterProfile.name,
-              preventingDuplicate: true
+              existingTwitterId: existingUser.twitterId,
+              existingName: existingUser.displayName,
+              newTwitterId: twitterProfile.id,
+              newName: twitterProfile.name,
+              action: 'UPDATE_EXISTING'
             });
             
-            // Update existing user with latest Twitter data
-            await db.collection('users').updateOne(
+            // Update existing user with latest Twitter data and last login
+            const updateResult = await db.collection('users').updateOne(
               { _id: existingUser._id },
               {
                 $set: {
@@ -84,11 +106,14 @@ export const authOptions: NextAuthOptions = {
                 }
               }
             );
+
+            console.log('✅ UPDATED EXISTING USER:', updateResult.matchedCount, 'matched,', updateResult.modifiedCount, 'modified');
             
-            // CRITICAL: Set the user ID to existing user to prevent NextAuth creating new user
+            // OVERRIDE user object to use existing user data
             user.id = existingUser._id.toString();
-            user.email = existingUser.email;
-            user.name = existingUser.displayName;
+            user.email = existingUser.email || user.email;
+            user.name = existingUser.displayName || user.name;
+            user.image = existingUser.profileImage || user.image;
             
             return true;
           } else {
@@ -121,32 +146,63 @@ export const authOptions: NextAuthOptions = {
               },
             };
 
-            // Double-check no user was created in the meantime (race condition protection)
-            const raceCheck = await db.collection('users').findOne({
+            console.log('🆕 CREATING NEW USER - No existing user found');
+            
+            // COMPREHENSIVE final race condition check with all our detection methods
+            const finalRaceCheck = await db.collection('users').findOne({
               $or: [
                 { twitterId: twitterProfile.id },
-                { email: user.email }
+                { 
+                  $and: [
+                    { displayName: twitterProfile.name },
+                    { username: twitterProfile.username }
+                  ]
+                },
+                {
+                  $and: [
+                    { email: user.email },
+                    { email: { $ne: null } },
+                    { email: { $ne: '' } }
+                  ]
+                }
               ]
             });
 
-            if (raceCheck) {
-              console.log('🔒 Race condition detected, using existing user:', raceCheck._id);
-              user.id = raceCheck._id.toString();
+            if (finalRaceCheck) {
+              console.log('🔒 RACE CONDITION PREVENTED - User was created during process:', {
+                existingId: finalRaceCheck._id,
+                action: 'USE_EXISTING'
+              });
+              user.id = finalRaceCheck._id.toString();
+              user.email = finalRaceCheck.email || user.email;
+              user.name = finalRaceCheck.displayName || user.name;
+              user.image = finalRaceCheck.profileImage || user.image;
               return true;
             }
+
+            console.log('📝 INSERTING NEW USER:', {
+              twitterId: newUser.twitterId,
+              name: newUser.displayName,
+              username: newUser.username,
+              credits: newUser.credits
+            });
 
             const result = await db.collection('users').insertOne(newUser);
 
             if (result.acknowledged) {
-              console.log('✅ New user created with starting credits:', {
+              console.log('✅ NEW USER CREATED SUCCESSFULLY:', {
                 id: result.insertedId,
                 username: newUser.username,
+                displayName: newUser.displayName,
                 credits: newUser.credits,
                 email: newUser.email
               });
 
-              // Set the user ID for NextAuth
+              // Set the user object for JWT session
               user.id = result.insertedId.toString();
+              user.email = newUser.email;
+              user.name = newUser.displayName;
+              user.image = newUser.avatar;
 
               // Create welcome credit transaction
               await db.collection('credit_transactions').insertOne({

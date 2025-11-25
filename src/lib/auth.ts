@@ -44,11 +44,13 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       try {
-        console.log('🔐 SIGNIN ATTEMPT:', {
+        console.log('🔐 SIGNIN ATTEMPT - AUTH CALLBACK TRIGGERED:', {
           provider: account?.provider,
           userName: user.name,
           userEmail: user.email,
-          profileId: (profile as TwitterProfile)?.id
+          profileId: (profile as TwitterProfile)?.id,
+          timestamp: new Date().toISOString(),
+          userAgent: 'NextAuth signIn callback'
         });
 
         if (account?.provider === 'twitter' && profile) {
@@ -218,7 +220,10 @@ export const authOptions: NextAuthOptions = {
         }
         return true;
       } catch (error) {
-        console.error('Sign in error:', error);
+        console.error('❌ CRITICAL ERROR in signIn callback:', error);
+        console.error('❌ User data causing error:', { name: user.name, email: user.email });
+        console.error('❌ Account data causing error:', account);
+        console.error('❌ Profile data causing error:', profile);
         return false;
       }
     },

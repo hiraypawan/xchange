@@ -46,18 +46,30 @@ export const authOptions: NextAuthOptions = {
           const { db } = await connectToDatabase();
           const twitterProfile = profile as TwitterProfile;
           
-          // Check if user exists by twitterId OR email (prevent duplicates)
+          // MORE COMPREHENSIVE duplicate checking
           const existingUser = await db.collection('users').findOne({
             $or: [
               { twitterId: twitterProfile.id },
-              { email: user.email }
+              { email: user.email },
+              // Also check by name and profile URL for additional safety
+              { 
+                $and: [
+                  { displayName: twitterProfile.name },
+                  { username: twitterProfile.username }
+                ]
+              }
             ]
           });
 
           if (existingUser) {
-            console.log('✅ Existing user found, preventing duplicate account creation:', existingUser._id);
+            console.log('✅ DUPLICATE PREVENTED: Existing user found:', {
+              existingId: existingUser._id,
+              twitterId: twitterProfile.id,
+              name: twitterProfile.name,
+              preventingDuplicate: true
+            });
             
-            // Update existing user with latest Twitter data if needed
+            // Update existing user with latest Twitter data
             await db.collection('users').updateOne(
               { _id: existingUser._id },
               {
@@ -73,8 +85,11 @@ export const authOptions: NextAuthOptions = {
               }
             );
             
-            // Use existing user ID to prevent duplicate
+            // CRITICAL: Set the user ID to existing user to prevent NextAuth creating new user
             user.id = existingUser._id.toString();
+            user.email = existingUser.email;
+            user.name = existingUser.displayName;
+            
             return true;
           } else {
             // Create new user with starting credits

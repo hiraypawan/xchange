@@ -77,7 +77,9 @@ async function cleanupDuplicateUsers() {
           if (a.lastLogin && !b.lastLogin) return -1;
           if (!a.lastLogin && b.lastLogin) return 1;
           // Otherwise prefer older account (first created)
-          return a.createdAt.getTime() - b.createdAt.getTime();
+          const aDate = a.createdAt ? new Date(a.createdAt).getTime() : Date.now();
+          const bDate = b.createdAt ? new Date(b.createdAt).getTime() : Date.now();
+          return aDate - bDate;
         });
         
         const keepUser = users[0];
@@ -132,7 +134,9 @@ async function cleanupDuplicateUsers() {
               return (b.credits || 0) - (a.credits || 0);
             }
             // Then by creation date (oldest first)
-            return a.createdAt.getTime() - b.createdAt.getTime();
+            const aDate = a.createdAt ? new Date(a.createdAt).getTime() : Date.now();
+            const bDate = b.createdAt ? new Date(b.createdAt).getTime() : Date.now();
+            return aDate - bDate;
           });
           
           const keepUser = users[0];
@@ -192,7 +196,9 @@ async function cleanupDuplicateUsers() {
             }
             if (a.lastLogin && !b.lastLogin) return -1;
             if (!a.lastLogin && b.lastLogin) return 1;
-            return a.createdAt.getTime() - b.createdAt.getTime();
+            const aDate = a.createdAt ? new Date(a.createdAt).getTime() : Date.now();
+            const bDate = b.createdAt ? new Date(b.createdAt).getTime() : Date.now();
+            return aDate - bDate;
           });
           
           const keepUser = stillExists[0];

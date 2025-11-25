@@ -81,11 +81,16 @@ export const authOptions: NextAuthOptions = {
               credits: dbUser.credits
             });
 
-            // Set the user object for JWT session
+            // Set the user object for JWT session with all needed properties
             user.id = dbUser._id.toString();
             user.email = dbUser.email || user.email;
             user.name = dbUser.displayName || user.name;
             user.image = dbUser.avatar || dbUser.profileImage || user.image;
+            
+            // Store Twitter ID for API calls
+            (user as any).twitterId = dbUser.twitterId;
+            (user as any).username = dbUser.username;
+            (user as any).credits = dbUser.credits;
             
           } catch (dbError) {
             console.warn('⚠️ UserManager failed, falling back to simple auth:', dbError);
@@ -93,6 +98,10 @@ export const authOptions: NextAuthOptions = {
             // Fallback: Allow sign-in without database operations
             // This allows access to fix the database issues
             user.id = twitterProfile.id; // Use Twitter ID as fallback
+            (user as any).twitterId = twitterProfile.id;
+            (user as any).username = twitterProfile.username || user.name?.replace(/\s+/g, '_').toLowerCase();
+            (user as any).credits = 0; // Default credits for fallback
+            
             console.log('✅ FALLBACK AUTH - User signed in without database:', {
               twitterId: twitterProfile.id,
               name: twitterProfile.name,
@@ -112,65 +121,73 @@ export const authOptions: NextAuthOptions = {
         console.log('🔓 EMERGENCY FALLBACK - Allowing sign-in despite errors');
         if (account?.provider === 'twitter' && profile) {
           user.id = (profile as TwitterProfile).id; // Use Twitter ID as fallback
+          (user as any).twitterId = (profile as TwitterProfile).id;
+          (user as any).username = (profile as TwitterProfile).username || user.name?.replace(/\s+/g, '_').toLowerCase();
+          (user as any).credits = 0; // Default credits for emergency fallback
         }
         return true; // Changed from false to true to prevent lockout
       }
     },
     
-    async session({ session, user }) {
+    async jwt({ token, user, account, profile }) {
+      // This runs whenever a JWT is accessed
+      // Store user data in the token for session access
+      if (user) {
+        token.id = user.id;
+        token.twitterId = (user as any).twitterId;
+        token.username = (user as any).username;
+        token.credits = (user as any).credits;
+        token.userId = user.id;
+      }
+      
+      return token;
+    },
+    
+    async session({ session, token }) {
       try {
-        console.log('Session callback - user from adapter:', user);
-        console.log('Session callback - session:', session);
+        console.log('Session callback - token:', token);
         
-        if (user) {
-          // When using database strategy, user comes from the adapter
-          session.user.id = user.id;
+        // Transfer token data to session
+        if (token) {
+          session.user.id = token.id as string;
+          session.user.twitterId = token.twitterId as string;
+          session.user.username = token.username as string;
           
-          // Fetch additional user data from our custom users collection
-          const { db } = await connectToDatabase();
-          
-          // Try multiple methods to find the user
-          let dbUser = null;
-          
-          // Try by email first (most reliable from Twitter OAuth)
-          if (session.user.email) {
-            dbUser = await db.collection('users').findOne({ 
-              email: session.user.email 
-            });
-          }
-          
-          // Try by user.id if it looks like a twitterId
-          if (!dbUser && user.id) {
-            dbUser = await db.collection('users').findOne({ 
-              twitterId: user.id 
-            });
-          }
-          
-          // Try by ObjectId if user.id looks like MongoDB ObjectId
-          if (!dbUser && user.id && user.id.match(/^[0-9a-fA-F]{24}$/)) {
+          // Try to get fresh user data from database if twitterId is available
+          if (token.twitterId) {
             try {
-              dbUser = await db.collection('users').findOne({ 
-                _id: new ObjectId(user.id)
+              const { db } = await connectToDatabase();
+              const dbUser = await db.collection('users').findOne({ 
+                twitterId: token.twitterId 
               });
-            } catch (error) {
-              console.log('ObjectId lookup failed:', error);
+              
+              if (dbUser) {
+                session.user.id = dbUser._id.toString();
+                session.user.twitterId = dbUser.twitterId;
+                session.user.username = dbUser.username;
+                session.user.credits = dbUser.credits;
+                
+                console.log('Session callback - fresh data from DB:', {
+                  id: dbUser._id.toString(),
+                  twitterId: dbUser.twitterId,
+                  credits: dbUser.credits
+                });
+              }
+            } catch (dbError) {
+              console.warn('Session callback - DB lookup failed, using token data:', dbError);
+              // Fall back to token data
+              session.user.credits = token.credits as number;
             }
-          }
-          
-          console.log('Session callback - search results:');
-          console.log('- Email search:', session.user.email, dbUser ? 'FOUND' : 'NOT FOUND');
-          console.log('- TwitterId search:', user.id, dbUser ? 'FOUND' : 'NOT FOUND');
-          console.log('- Final dbUser:', dbUser ? { id: dbUser._id, twitterId: dbUser.twitterId, credits: dbUser.credits } : 'NULL');
-          
-          if (dbUser) {
-            session.user.id = dbUser._id.toString();
-            session.user.twitterId = dbUser.twitterId;
-            session.user.username = dbUser.username;
-            session.user.credits = dbUser.credits;
           }
         }
         
-        console.log('Session callback - final session:', session);
+        console.log('Session callback - final session:', {
+          id: session.user.id,
+          twitterId: session.user.twitterId,
+          username: session.user.username,
+          credits: session.user.credits
+        });
+        
         return session;
       } catch (error) {
         console.error('Session callback error:', error);

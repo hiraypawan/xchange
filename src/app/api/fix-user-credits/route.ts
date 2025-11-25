@@ -18,17 +18,38 @@ export async function POST(req: NextRequest) {
     const userIdentifiers = {
       twitterId: session.user.twitterId || session.user.id,
       email: session.user.email,
+      name: session.user.name,
+      username: session.user.username,
     };
-
+    
+    console.log('Session user object:', JSON.stringify(session.user, null, 2));
     console.log('Looking for user:', userIdentifiers);
 
     // Find user by multiple methods
     let user = null;
+    
+    // Method 1: Try by twitterId
     if (userIdentifiers.twitterId) {
       user = await db.collection('users').findOne({ twitterId: userIdentifiers.twitterId });
+      console.log('Search by twitterId:', userIdentifiers.twitterId, user ? 'FOUND' : 'NOT FOUND');
     }
+    
+    // Method 2: Try by email
     if (!user && userIdentifiers.email) {
       user = await db.collection('users').findOne({ email: userIdentifiers.email });
+      console.log('Search by email:', userIdentifiers.email, user ? 'FOUND' : 'NOT FOUND');
+    }
+    
+    // Method 3: Try by username
+    if (!user && userIdentifiers.username) {
+      user = await db.collection('users').findOne({ username: userIdentifiers.username });
+      console.log('Search by username:', userIdentifiers.username, user ? 'FOUND' : 'NOT FOUND');
+    }
+    
+    // Method 4: Try by displayName
+    if (!user && userIdentifiers.name) {
+      user = await db.collection('users').findOne({ displayName: userIdentifiers.name });
+      console.log('Search by displayName:', userIdentifiers.name, user ? 'FOUND' : 'NOT FOUND');
     }
 
     console.log('Found user:', user ? { id: user._id, credits: user.credits } : 'NOT FOUND');
@@ -36,9 +57,9 @@ export async function POST(req: NextRequest) {
     if (!user) {
       // Create user with proper credits
       const newUser = {
-        twitterId: userIdentifiers.twitterId,
-        username: session.user.username || session.user.name?.replace(/\s+/g, '_').toLowerCase() || 'user_' + Date.now(),
-        displayName: session.user.name || 'User',
+        twitterId: userIdentifiers.twitterId || `temp_${Date.now()}`, // Generate temporary ID if missing
+        username: userIdentifiers.username || session.user.name?.replace(/\s+/g, '_').toLowerCase() || 'user_' + Date.now(),
+        displayName: userIdentifiers.name || session.user.name || 'User',
         email: userIdentifiers.email,
         avatar: session.user.image,
         credits: 2, // Set to 2 credits

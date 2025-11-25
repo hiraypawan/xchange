@@ -155,7 +155,7 @@ export async function GET(req: NextRequest) {
       let totalEngagements = 0;
       let completedEngagements = 0;
       let totalTransactions = 0;
-      let recentTransactions = [];
+      let recentTransactions: any[] = [];
       let weeklyEarnings = 0;
 
       try {

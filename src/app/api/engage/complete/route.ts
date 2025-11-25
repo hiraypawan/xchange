@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions, updateUserCredits } from '@/lib/auth';
+import { authOptions } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
@@ -80,13 +80,26 @@ export async function POST(req: NextRequest) {
           );
 
           // Award credits to user
-          await updateUserCredits(
-            user._id.toString(),
-            engagement.creditsEarned,
-            'earn',
-            `Completed ${engagement.engagementType} engagement`,
-            { engagementId }
+          const newBalance = user.credits + engagement.creditsEarned;
+          await db.collection('users').updateOne(
+            { _id: user._id },
+            { 
+              $inc: { credits: engagement.creditsEarned },
+              $set: { lastActive: new Date() }
+            },
+            { session: transactionSession }
           );
+
+          // Create credit transaction
+          await db.collection('credit_transactions').insertOne({
+            userId: user._id.toString(),
+            type: 'earn',
+            amount: engagement.creditsEarned,
+            balance: newBalance,
+            description: `Completed ${engagement.engagementType} engagement`,
+            createdAt: new Date(),
+            metadata: { engagementId }
+          }, { session: transactionSession });
 
           // Update user stats
           await db.collection('users').updateOne(

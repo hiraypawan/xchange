@@ -1,6 +1,7 @@
 import { NextAuthOptions, Profile } from 'next-auth';
 import TwitterProvider from 'next-auth/providers/twitter';
 import { connectToDatabase } from './mongodb';
+import { ObjectId } from 'mongodb';
 
 // Define Twitter profile interface
 interface TwitterProfile extends Profile {
@@ -236,3 +237,55 @@ export const authOptions: NextAuthOptions = {
     },
   },
 };
+
+// Helper function to update user credits - for backward compatibility
+export async function updateUserCredits(
+  userId: string, 
+  amount: number, 
+  type: string,
+  description: string,
+  metadata?: any
+): Promise<boolean> {
+  try {
+    const { db } = await connectToDatabase();
+    
+    // Get current user
+    const objectId = new ObjectId(userId);
+    const user = await db.collection('users').findOne({ _id: objectId });
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    const newBalance = user.credits + amount;
+    
+    if (newBalance < 0) {
+      throw new Error('Insufficient credits');
+    }
+    
+    // Update user credits
+    await db.collection('users').updateOne(
+      { _id: objectId },
+      { 
+        $set: { credits: newBalance, lastActive: new Date() },
+        $inc: amount > 0 ? { totalEarned: amount } : { totalSpent: Math.abs(amount) }
+      }
+    );
+    
+    // Create transaction record
+    await db.collection('credit_transactions').insertOne({
+      userId: objectId.toString(),
+      type,
+      amount,
+      balance: newBalance,
+      description,
+      metadata,
+      createdAt: new Date(),
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Update user credits error:', error);
+    return false;
+  }
+}

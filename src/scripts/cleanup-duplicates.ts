@@ -24,13 +24,14 @@ async function cleanupDuplicateUsers() {
     const allUsers = await db.collection('users').find({}).toArray() as User[];
     console.log(`📊 Found ${allUsers.length} total users`);
     
-    // Group users by email and twitterId
+    // Group users by email, twitterId, AND displayName/username
     const emailGroups = new Map<string, User[]>();
     const twitterIdGroups = new Map<string, User[]>();
+    const nameGroups = new Map<string, User[]>();
     
     for (const user of allUsers) {
       // Group by email
-      if (user.email) {
+      if (user.email && user.email !== 'No email') {
         if (!emailGroups.has(user.email)) {
           emailGroups.set(user.email, []);
         }
@@ -43,6 +44,15 @@ async function cleanupDuplicateUsers() {
           twitterIdGroups.set(user.twitterId, []);
         }
         twitterIdGroups.get(user.twitterId)!.push(user);
+      }
+      
+      // Group by name (for users with same display name like "W3B GEN")
+      if (user.displayName || user.username) {
+        const name = user.displayName || user.username;
+        if (!nameGroups.has(name)) {
+          nameGroups.set(name, []);
+        }
+        nameGroups.get(name)!.push(user);
       }
     }
     
@@ -98,6 +108,64 @@ async function cleanupDuplicateUsers() {
         
         console.log(`✅ Kept user ${keepUser._id} (${keepUser.displayName}) with ${totalCredits} credits`);
         console.log(`❌ Removed ${deleteResult.deletedCount} duplicate accounts`);
+      }
+    }
+    
+    // Process name duplicates (like "W3B GEN" appearing multiple times)
+    for (const [name, users] of Array.from(nameGroups.entries())) {
+      if (users.length > 1 && name !== 'Unknown User') {
+        console.log(`🔍 Found ${users.length} users with name: ${name}`);
+        duplicatesFound += users.length - 1;
+        
+        // Check if these users have different emails/twitterIds (real duplicates)
+        const uniqueEmails = new Set(users.map(u => u.email).filter(e => e));
+        const uniqueTwitterIds = new Set(users.map(u => u.twitterId).filter(t => t));
+        
+        // Only process if they seem like real duplicates (same name, no unique identifiers)
+        if (uniqueEmails.size <= 1 && uniqueTwitterIds.size <= 1) {
+          // Sort by creation date (keep oldest) or credits (keep highest)
+          users.sort((a, b) => {
+            // Prefer user with most credits
+            if (a.credits !== b.credits) {
+              return (b.credits || 0) - (a.credits || 0);
+            }
+            // Then by creation date (oldest first)
+            return a.createdAt.getTime() - b.createdAt.getTime();
+          });
+          
+          const keepUser = users[0];
+          const duplicateUsers = users.slice(1);
+          
+          // Merge credits from duplicates into the main user
+          let totalCredits = keepUser.credits || 0;
+          for (const duplicate of duplicateUsers) {
+            totalCredits += duplicate.credits || 0;
+          }
+          
+          // Update the main user with merged credits
+          await db.collection('users').updateOne(
+            { _id: keepUser._id },
+            {
+              $set: {
+                credits: totalCredits,
+                updatedAt: new Date()
+              }
+            }
+          );
+          
+          // Remove duplicate users
+          const duplicateIds = duplicateUsers.map(u => u._id);
+          const deleteResult = await db.collection('users').deleteMany({
+            _id: { $in: duplicateIds }
+          });
+          
+          duplicatesRemoved += deleteResult.deletedCount;
+          
+          console.log(`✅ Kept user ${keepUser._id} (${name}) with ${totalCredits} credits`);
+          console.log(`❌ Removed ${deleteResult.deletedCount} name duplicates`);
+        } else {
+          console.log(`⚠️ Users with name "${name}" have different emails/twitterIds - not duplicates`);
+        }
       }
     }
     

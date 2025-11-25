@@ -33,14 +33,14 @@ export async function POST(request: NextRequest) {
       }, { status: 401 });
     }
 
-    console.log('🧹 Admin initiated duplicate cleanup:', session.user?.name);
+    console.log('🧹 Admin initiated duplicate cleanup:', session?.user?.name || 'Password authenticated');
 
     // Run the cleanup using centralized UserManager
     const result = await UserManager.cleanupDuplicates();
 
     // Log admin action
     console.log('✅ Admin cleanup completed:', {
-      adminUser: session.user?.name,
+      adminUser: session?.user?.name || 'Password authenticated',
       result,
       timestamp: new Date().toISOString()
     });

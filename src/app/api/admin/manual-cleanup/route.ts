@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       }, { status: 401 });
     }
 
-    console.log('🧹 Admin initiated manual cleanup via API:', session.user?.name);
+    console.log('🧹 Admin initiated manual cleanup via API:', session?.user?.name || 'Password authenticated');
 
     // Get database connection
     const { db } = await connectToDatabase();
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
 
     // Log admin action
     console.log('✅ Manual cleanup completed:', {
-      adminUser: session.user?.name,
+      adminUser: session?.user?.name || 'Password authenticated',
       result,
       remainingDuplicates: remainingDuplicates.length,
       timestamp: new Date().toISOString()

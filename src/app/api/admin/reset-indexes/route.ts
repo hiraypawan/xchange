@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       }, { status: 401 });
     }
 
-    console.log('🔧 Admin initiated index reset via API:', session.user?.name);
+    console.log('🔧 Admin initiated index reset via API:', session?.user?.name || 'Password authenticated');
 
     const { db } = await connectToDatabase();
     
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     // Log admin action
     console.log('✅ Index reset completed:', {
-      adminUser: session.user?.name,
+      adminUser: session?.user?.name || 'Password authenticated',
       results,
       timestamp: new Date().toISOString()
     });

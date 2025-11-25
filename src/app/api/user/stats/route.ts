@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
           displayName: userIdentifiers.name || 'User',
           email: userIdentifiers.email,
           avatar: session.user.image,
-          credits: parseInt(process.env.USER_STARTING_CREDITS || '100'), // Default starting credits
+          credits: parseInt(process.env.USER_STARTING_CREDITS || '2'), // Default starting credits
           totalEarned: 0,
           totalSpent: 0,
           joinedAt: new Date(),

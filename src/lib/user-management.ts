@@ -125,7 +125,7 @@ export class UserManager {
       displayName: userData.displayName || 'Unknown User',
       avatar: userData.profileImage,
       email: userData.email,
-      credits: parseInt(process.env.USER_STARTING_CREDITS || '100'),
+      credits: parseInt(process.env.USER_STARTING_CREDITS || '2'),
       totalEarned: 0,
       totalSpent: 0,
       joinedAt: new Date(),
@@ -181,8 +181,8 @@ export class UserManager {
           await db.collection('credit_transactions').insertOne({
             userId: result.upsertedId.toString(),
             type: 'bonus',
-            amount: parseInt(process.env.USER_STARTING_CREDITS || '100'),
-            balance: parseInt(process.env.USER_STARTING_CREDITS || '100'),
+            amount: parseInt(process.env.USER_STARTING_CREDITS || '2'),
+            balance: parseInt(process.env.USER_STARTING_CREDITS || '2'),
             description: 'Welcome bonus - Account creation',
             createdAt: new Date(),
           });

@@ -4,84 +4,68 @@ import { authOptions } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import { UserManager } from '@/lib/user-management';
 
-// GET /api/user/stats - Get user statistics
+// HOTFIX: More robust error handling for user stats API
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    console.log('Stats API - session:', session);
+    console.log('HOTFIX Stats API - session check:', {
+      hasSession: !!session,
+      hasUser: !!session?.user,
+      sessionUser: session?.user
+    });
     
     if (!session?.user) {
+      console.log('HOTFIX - No session/user, returning 401');
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized', details: 'No valid session found' },
         { status: 401 }
       );
     }
 
-    console.log('Stats API - Looking up user with session data:', {
-      id: session.user.id,
-      twitterId: session.user.twitterId,
+    // More flexible user identification
+    const userIdentifiers = {
+      twitterId: session.user.twitterId || session.user.id,
       email: session.user.email,
-      name: session.user.name
-    });
+      name: session.user.name,
+      username: session.user.username
+    };
+
+    console.log('HOTFIX Stats API - User identifiers:', userIdentifiers);
 
     let user = null;
 
     try {
-      // First try to find existing user using UserManager
-      user = await UserManager.findExistingUser({
-        twitterId: session.user.twitterId || session.user.id, // Fallback to session.user.id for fallback auth
-        username: session.user.username || session.user.name?.replace(/\s+/g, '_').toLowerCase(),
-        displayName: session.user.name || '',
-        email: session.user.email || undefined,
-        profileImage: session.user.image || undefined
-      });
-
-      // If user doesn't exist, create one using UserManager
-      if (!user) {
-        console.log('User not found, creating new user via UserManager');
-        const { user: newUser } = await UserManager.ensureUser({
-          twitterId: session.user.twitterId || session.user.id, // Fallback to session.user.id
-          username: session.user.username || session.user.name?.replace(/\s+/g, '_').toLowerCase(),
-          displayName: session.user.name || 'Unknown User',
-          email: session.user.email || undefined,
-          profileImage: session.user.image || undefined
-        });
-        user = newUser;
-        console.log('✅ User created successfully via UserManager');
-      } else {
-        console.log('✅ User found via UserManager');
-      }
-    } catch (userManagerError) {
-      console.error('UserManager failed, falling back to basic user creation:', userManagerError);
-      
-      // Fallback: Try direct database operations
+      // Try multiple approaches to find the user
       const { db } = await connectToDatabase();
       
-      // Try to find by twitterId or session ID
-      const searchId = session.user.twitterId || session.user.id;
-      if (searchId) {
+      // Method 1: Try by twitterId
+      if (userIdentifiers.twitterId) {
         user = await db.collection('users').findOne({ 
-          twitterId: searchId 
+          twitterId: userIdentifiers.twitterId 
         });
-        
-        if (!user && session.user.email) {
-          user = await db.collection('users').findOne({ 
-            email: session.user.email 
-          });
-        }
+        console.log('HOTFIX - TwitterId lookup result:', user ? 'FOUND' : 'NOT_FOUND');
       }
       
-      // If still no user, create a minimal user record
-      if (!user && searchId) {
-        console.log('Creating minimal user record as fallback');
+      // Method 2: Try by email if twitterId failed
+      if (!user && userIdentifiers.email) {
+        user = await db.collection('users').findOne({ 
+          email: userIdentifiers.email 
+        });
+        console.log('HOTFIX - Email lookup result:', user ? 'FOUND' : 'NOT_FOUND');
+      }
+
+      // Method 3: If user still not found, create a basic user record
+      if (!user && userIdentifiers.twitterId) {
+        console.log('HOTFIX - Creating new user record');
+        
         const newUser = {
-          twitterId: searchId,
-          username: session.user.username || session.user.name?.replace(/\s+/g, '_').toLowerCase() || 'unknown',
-          displayName: session.user.name || 'Unknown User',
-          email: session.user.email,
+          twitterId: userIdentifiers.twitterId,
+          username: userIdentifiers.username || userIdentifiers.name?.replace(/\s+/g, '_').toLowerCase() || 'user_' + Date.now(),
+          displayName: userIdentifiers.name || 'User',
+          email: userIdentifiers.email,
           avatar: session.user.image,
-          credits: parseInt(process.env.USER_STARTING_CREDITS || '100'),
+          credits: 100, // Default starting credits
           totalEarned: 0,
           totalSpent: 0,
           joinedAt: new Date(),
@@ -106,120 +90,190 @@ export async function GET(req: NextRequest) {
         try {
           const result = await db.collection('users').insertOne(newUser);
           user = { ...newUser, _id: result.insertedId };
-          console.log('✅ Minimal user created successfully');
+          console.log('HOTFIX - User created successfully:', user._id);
         } catch (createError) {
-          console.error('Failed to create minimal user:', createError);
-          return NextResponse.json(
-            { 
-              error: 'Unable to create or find user record',
-              details: 'Database operations failed'
-            },
-            { status: 400 }
-          );
+          console.error('HOTFIX - Failed to create user:', createError);
+          
+          // Return a default response instead of failing completely
+          const defaultStats = {
+            credits: 0,
+            totalEarned: 0,
+            totalSpent: 0,
+            totalEngagements: 0,
+            completedEngagements: 0,
+            successRate: 0,
+            weeklyEarnings: 0,
+            totalTransactions: 0,
+            recentTransactions: [],
+            joinedAt: new Date(),
+            lastActive: new Date(),
+          };
+
+          console.log('HOTFIX - Returning default stats due to user creation failure');
+          return NextResponse.json({
+            success: true,
+            data: defaultStats,
+            isDefault: true,
+            message: 'Using default values due to database issues'
+          });
         }
       }
-    }
 
-    // Final check: if user still null, return an error
-    if (!user) {
-      return NextResponse.json(
-        { 
-          error: 'Unable to locate or create user',
-          details: 'User lookup and creation failed'
-        },
-        { status: 400 }
-      );
-    }
+      // If we still have no user, return default stats
+      if (!user) {
+        console.log('HOTFIX - No user found, returning default stats');
+        const defaultStats = {
+          credits: 0,
+          totalEarned: 0,
+          totalSpent: 0,
+          totalEngagements: 0,
+          completedEngagements: 0,
+          successRate: 0,
+          weeklyEarnings: 0,
+          totalTransactions: 0,
+          recentTransactions: [],
+          joinedAt: new Date(),
+          lastActive: new Date(),
+        };
 
-    // Now we have a user, get the stats
-    console.log('✅ User ready for stats calculation:', {
-      id: user._id,
-      twitterId: user.twitterId,
-      displayName: user.displayName
-    });
-
-    // Calculate statistics - use both possible userId formats for compatibility
-    const { db } = await connectToDatabase();
-    const userIdQueries = [user._id.toString()];
-    if (user.twitterId) {
-      userIdQueries.push(user.twitterId);
-    }
-    
-    console.log('Querying stats with userIds:', userIdQueries);
-    
-    const [
-      totalEngagements,
-      completedEngagements,
-      totalTransactions,
-      recentTransactions,
-    ] = await Promise.all([
-      db.collection('engagements').countDocuments({ userId: { $in: userIdQueries } }),
-      db.collection('engagements').countDocuments({ 
-        userId: { $in: userIdQueries }, 
-        status: 'completed' 
-      }),
-      db.collection('credit_transactions').countDocuments({ userId: { $in: userIdQueries } }),
-      db.collection('credit_transactions')
-        .find({ userId: { $in: userIdQueries } })
-        .sort({ createdAt: -1 })
-        .limit(10)
-        .toArray(),
-    ]);
-
-    const successRate = totalEngagements > 0 
-      ? Math.round((completedEngagements / totalEngagements) * 100)
-      : 0;
-
-    // Calculate earnings in the last 7 days
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
-    const weeklyEarnings = await db.collection('credit_transactions').aggregate([
-      {
-        $match: {
-          userId: { $in: userIdQueries },
-          type: 'earn',
-          createdAt: { $gte: sevenDaysAgo }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$amount' }
-        }
+        return NextResponse.json({
+          success: true,
+          data: defaultStats,
+          isDefault: true,
+          message: 'Using default values - user needs to be set up'
+        });
       }
-    ]).toArray();
 
-    const stats = {
-      credits: user.credits,
-      totalEarned: user.totalEarned || 0,
-      totalSpent: user.totalSpent || 0,
-      totalEngagements,
-      completedEngagements,
-      successRate,
-      weeklyEarnings: weeklyEarnings[0]?.total || 0,
-      totalTransactions,
-      recentTransactions,
-      joinedAt: user.joinedAt,
-      lastActive: user.lastActive,
-    };
+      // Calculate statistics with error handling
+      console.log('HOTFIX - Calculating stats for user:', user._id);
+      
+      const userIdQueries = [user._id.toString()];
+      if (user.twitterId) {
+        userIdQueries.push(user.twitterId);
+      }
+      
+      let totalEngagements = 0;
+      let completedEngagements = 0;
+      let totalTransactions = 0;
+      let recentTransactions = [];
+      let weeklyEarnings = 0;
 
-    console.log('Stats API - Success:', {
-      userId: user._id.toString(),
-      twitterId: user.twitterId,
-      credits: user.credits,
-      totalEngagements,
-      completedEngagements
-    });
+      try {
+        const [
+          engagementsCount,
+          completedCount,
+          transactionsCount,
+          recentTx
+        ] = await Promise.all([
+          db.collection('engagements').countDocuments({ userId: { $in: userIdQueries } }).catch(() => 0),
+          db.collection('engagements').countDocuments({ 
+            userId: { $in: userIdQueries }, 
+            status: 'completed' 
+          }).catch(() => 0),
+          db.collection('credit_transactions').countDocuments({ userId: { $in: userIdQueries } }).catch(() => 0),
+          db.collection('credit_transactions')
+            .find({ userId: { $in: userIdQueries } })
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .toArray()
+            .catch(() => [])
+        ]);
 
-    return NextResponse.json({
-      success: true,
-      data: stats
-    });
+        totalEngagements = engagementsCount;
+        completedEngagements = completedCount;
+        totalTransactions = transactionsCount;
+        recentTransactions = recentTx;
+
+        // Calculate weekly earnings
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        const weeklyEarningsResult = await db.collection('credit_transactions').aggregate([
+          {
+            $match: {
+              userId: { $in: userIdQueries },
+              type: 'earn',
+              createdAt: { $gte: sevenDaysAgo }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: '$amount' }
+            }
+          }
+        ]).toArray().catch(() => []);
+
+        weeklyEarnings = weeklyEarningsResult[0]?.total || 0;
+
+      } catch (statsError) {
+        console.warn('HOTFIX - Error calculating detailed stats:', statsError);
+        // Continue with basic stats
+      }
+
+      const successRate = totalEngagements > 0 
+        ? Math.round((completedEngagements / totalEngagements) * 100)
+        : 0;
+
+      const stats = {
+        credits: user.credits || 0,
+        totalEarned: user.totalEarned || 0,
+        totalSpent: user.totalSpent || 0,
+        totalEngagements,
+        completedEngagements,
+        successRate,
+        weeklyEarnings,
+        totalTransactions,
+        recentTransactions,
+        joinedAt: user.joinedAt || new Date(),
+        lastActive: user.lastActive || new Date(),
+      };
+
+      console.log('HOTFIX Stats API - Success:', {
+        userId: user._id?.toString(),
+        twitterId: user.twitterId,
+        credits: stats.credits
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: stats
+      });
+
+    } catch (dbError) {
+      console.error('HOTFIX - Database error:', dbError);
+      
+      // Return default stats instead of failing
+      const defaultStats = {
+        credits: 0,
+        totalEarned: 0,
+        totalSpent: 0,
+        totalEngagements: 0,
+        completedEngagements: 0,
+        successRate: 0,
+        weeklyEarnings: 0,
+        totalTransactions: 0,
+        recentTransactions: [],
+        joinedAt: new Date(),
+        lastActive: new Date(),
+      };
+
+      return NextResponse.json({
+        success: true,
+        data: defaultStats,
+        isDefault: true,
+        error: 'Database connection issues, using defaults'
+      });
+    }
+
   } catch (error) {
-    console.error('Get user stats error:', error);
+    console.error('HOTFIX - Critical error in stats API:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     );
   }

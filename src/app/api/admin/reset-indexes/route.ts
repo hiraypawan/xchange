@@ -27,8 +27,8 @@ export async function POST(request: NextRequest) {
     
     const results = {
       droppedIndexes: false,
-      createdIndexes: [],
-      errors: []
+      createdIndexes: [] as string[],
+      errors: [] as string[]
     };
 
     // Drop existing indexes (except _id)

@@ -302,8 +302,10 @@ export default function AdminDashboard() {
         </div>
 
         {/* Overview Tab */}
-        {activeTab === 'overview' && stats && (
-          <div className="space-y-8">
+        {activeTab === 'overview' && (
+          <div className="space-y-8">{stats ? (
+          <>
+            {/* Only show stats if available */}
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
             <div className="bg-white rounded-lg shadow p-6">
@@ -371,6 +373,16 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </div>
+          </>
+          ) : (
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading platform statistics...</p>
+                <p className="text-sm text-gray-500 mt-2">If this takes too long, check the console for errors</p>
+              </div>
+            </div>
+          )}
           </div>
         )}
 

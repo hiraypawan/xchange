@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const twitterId = session.user.twitterId || session.user.id;
     
     // Check if user already exists
-    const queryConditions = [
+    const queryConditions: any[] = [
       { twitterId: twitterId },
       ...(session.user.email ? [{ email: session.user.email }] : [])
     ];

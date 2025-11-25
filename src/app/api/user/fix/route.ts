@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 // Simple endpoint to fix the current user's record
 export async function POST(request: NextRequest) {
@@ -25,12 +26,22 @@ export async function POST(request: NextRequest) {
     const twitterId = session.user.twitterId || session.user.id;
     
     // Check if user already exists
+    const queryConditions = [
+      { twitterId: twitterId },
+      ...(session.user.email ? [{ email: session.user.email }] : [])
+    ];
+    
+    // Only add _id query if session.user.id looks like a valid ObjectId
+    if (session.user.id && session.user.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        queryConditions.push({ _id: new ObjectId(session.user.id) });
+      } catch (error) {
+        console.warn('Invalid ObjectId format for session.user.id:', session.user.id);
+      }
+    }
+    
     let user = await db.collection('users').findOne({
-      $or: [
-        { twitterId: twitterId },
-        { _id: session.user.id },
-        ...(session.user.email ? [{ email: session.user.email }] : [])
-      ]
+      $or: queryConditions
     });
 
     if (user) {

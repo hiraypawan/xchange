@@ -57,42 +57,63 @@ export const authOptions: NextAuthOptions = {
         if (account?.provider === 'twitter' && profile) {
           const twitterProfile = profile as TwitterProfile;
           
-          console.log('🔍 SIGNIN ATTEMPT - Using centralized UserManager...', {
+          console.log('🔍 SIGNIN ATTEMPT - Checking for existing user...', {
             twitterId: twitterProfile.id,
             name: twitterProfile.name,
             username: twitterProfile.username
           });
 
-          // Use centralized user management to prevent duplicates
-          const { user: dbUser, isNew } = await UserManager.ensureUser({
-            twitterId: twitterProfile.id,
-            username: twitterProfile.username || user.name?.replace(/\s+/g, '_').toLowerCase(),
-            displayName: twitterProfile.name || user.name || '',
-            email: user.email || undefined,
-            profileImage: twitterProfile.profile_image_url || user.image || undefined
-          });
+          try {
+            // Use centralized user management to prevent duplicates
+            const { user: dbUser, isNew } = await UserManager.ensureUser({
+              twitterId: twitterProfile.id,
+              username: twitterProfile.username || user.name?.replace(/\s+/g, '_').toLowerCase(),
+              displayName: twitterProfile.name || user.name || '',
+              email: user.email || undefined,
+              profileImage: twitterProfile.profile_image_url || user.image || undefined
+            });
 
-          console.log(isNew ? '✅ NEW USER CREATED' : '✅ EXISTING USER UPDATED', {
-            id: dbUser._id,
-            twitterId: dbUser.twitterId,
-            username: dbUser.username,
-            displayName: dbUser.displayName,
-            credits: dbUser.credits
-          });
+            console.log(isNew ? '✅ NEW USER CREATED' : '✅ EXISTING USER UPDATED', {
+              id: dbUser._id,
+              twitterId: dbUser.twitterId,
+              username: dbUser.username,
+              displayName: dbUser.displayName,
+              credits: dbUser.credits
+            });
 
-          // Set the user object for JWT session
-          user.id = dbUser._id.toString();
-          user.email = dbUser.email || user.email;
-          user.name = dbUser.displayName || user.name;
-          user.image = dbUser.avatar || dbUser.profileImage || user.image;
+            // Set the user object for JWT session
+            user.id = dbUser._id.toString();
+            user.email = dbUser.email || user.email;
+            user.name = dbUser.displayName || user.name;
+            user.image = dbUser.avatar || dbUser.profileImage || user.image;
+            
+          } catch (dbError) {
+            console.warn('⚠️ UserManager failed, falling back to simple auth:', dbError);
+            
+            // Fallback: Allow sign-in without database operations
+            // This allows access to fix the database issues
+            user.id = twitterProfile.id; // Use Twitter ID as fallback
+            console.log('✅ FALLBACK AUTH - User signed in without database:', {
+              twitterId: twitterProfile.id,
+              name: twitterProfile.name,
+              fallback: true
+            });
+          }
         }
         return true;
       } catch (error) {
-        console.error('❌ CRITICAL ERROR in signIn callback:', error);
-        console.error('❌ User data causing error:', { name: user.name, email: user.email });
-        console.error('❌ Account data causing error:', account);
-        console.error('❌ Profile data causing error:', profile);
-        return false;
+        console.error('❌ ERROR in signIn callback (allowing fallback):', error);
+        console.error('❌ User data:', { name: user.name, email: user.email });
+        console.error('❌ Account data:', account);
+        console.error('❌ Profile data:', profile);
+        
+        // Allow sign-in even with errors to prevent lockout
+        // User can fix database issues after signing in
+        console.log('🔓 EMERGENCY FALLBACK - Allowing sign-in despite errors');
+        if (account?.provider === 'twitter' && profile) {
+          user.id = (profile as TwitterProfile).id; // Use Twitter ID as fallback
+        }
+        return true; // Changed from false to true to prevent lockout
       }
     },
     

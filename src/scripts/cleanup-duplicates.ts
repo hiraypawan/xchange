@@ -49,10 +49,12 @@ async function cleanupDuplicateUsers() {
       // Group by name (for users with same display name like "W3B GEN")
       if (user.displayName || user.username) {
         const name = user.displayName || user.username;
-        if (!nameGroups.has(name)) {
-          nameGroups.set(name, []);
+        if (name) { // Ensure name is not undefined
+          if (!nameGroups.has(name)) {
+            nameGroups.set(name, []);
+          }
+          nameGroups.get(name)!.push(user);
         }
-        nameGroups.get(name)!.push(user);
       }
     }
     

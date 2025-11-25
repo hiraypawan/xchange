@@ -98,7 +98,7 @@ export class UserManager {
         displayName: userData.displayName || existingUser.displayName,
         profileImage: userData.profileImage || existingUser.profileImage,
         email: userData.email || existingUser.email,
-        lastLogin: new Date(),
+        lastActive: new Date(),
         updatedAt: new Date()
       };
 
@@ -130,7 +130,6 @@ export class UserManager {
       totalSpent: 0,
       joinedAt: new Date(),
       lastActive: new Date(),
-      lastLogin: new Date(),
       isActive: true,
       settings: {
         autoEngage: false,
@@ -167,7 +166,7 @@ export class UserManager {
         { 
           $setOnInsert: newUserData,
           $set: {
-            lastLogin: new Date(),
+            lastActive: new Date(),
             updatedAt: new Date()
           }
         },

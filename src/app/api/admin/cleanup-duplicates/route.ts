@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { cleanupDuplicateUsers } from '@/scripts/cleanup-duplicates';
+import { UserManager } from '@/lib/user-management';
 
 // Check if user is admin
 function isAdmin(session: any) {
@@ -22,8 +22,8 @@ export async function POST(request: NextRequest) {
 
     console.log('🧹 Admin initiated duplicate cleanup:', session.user?.name);
 
-    // Run the cleanup
-    const result = await cleanupDuplicateUsers();
+    // Run the cleanup using centralized UserManager
+    const result = await UserManager.cleanupDuplicates();
 
     // Log admin action
     console.log('✅ Admin cleanup completed:', {

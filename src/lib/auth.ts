@@ -5,6 +5,7 @@ import clientPromise from './mongodb';
 import { connectToDatabase } from './mongodb';
 import { User } from '@/types';
 import { ObjectId } from 'mongodb';
+import { UserManager } from './user-management';
 
 // Define Twitter profile interface
 interface TwitterProfile extends Profile {
@@ -54,169 +55,36 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (account?.provider === 'twitter' && profile) {
-          const { db } = await connectToDatabase();
           const twitterProfile = profile as TwitterProfile;
           
-          console.log('🔍 CHECKING FOR EXISTING USER...', {
+          console.log('🔍 SIGNIN ATTEMPT - Using centralized UserManager...', {
             twitterId: twitterProfile.id,
             name: twitterProfile.name,
             username: twitterProfile.username
           });
 
-          // COMPREHENSIVE duplicate checking - check MULTIPLE ways to identify same user
-          const existingUser = await db.collection('users').findOne({
-            $or: [
-              { twitterId: twitterProfile.id }, // Primary: Same Twitter ID
-              { 
-                $and: [
-                  { displayName: twitterProfile.name },
-                  { username: twitterProfile.username }
-                ]
-              }, // Secondary: Same name AND username
-              {
-                $and: [
-                  { email: user.email },
-                  { email: { $ne: null } },
-                  { email: { $ne: '' } }
-                ]
-              } // Tertiary: Same email if available
-            ]
+          // Use centralized user management to prevent duplicates
+          const { user: dbUser, isNew } = await UserManager.ensureUser({
+            twitterId: twitterProfile.id,
+            username: twitterProfile.username || user.name?.replace(/\s+/g, '_').toLowerCase(),
+            displayName: twitterProfile.name || user.name || '',
+            email: user.email || undefined,
+            profileImage: twitterProfile.profile_image_url || user.image || undefined
           });
 
-          if (existingUser) {
-            console.log('🚫 DUPLICATE PREVENTED - EXISTING USER FOUND:', {
-              existingId: existingUser._id,
-              existingTwitterId: existingUser.twitterId,
-              existingName: existingUser.displayName,
-              newTwitterId: twitterProfile.id,
-              newName: twitterProfile.name,
-              action: 'UPDATE_EXISTING'
-            });
-            
-            // Update existing user with latest Twitter data and last login
-            const updateResult = await db.collection('users').updateOne(
-              { _id: existingUser._id },
-              {
-                $set: {
-                  twitterId: twitterProfile.id,
-                  username: twitterProfile.username || existingUser.username,
-                  displayName: twitterProfile.name || existingUser.displayName,
-                  profileImage: twitterProfile.profile_image_url || existingUser.profileImage,
-                  email: user.email || existingUser.email,
-                  lastLogin: new Date(),
-                  updatedAt: new Date()
-                }
-              }
-            );
+          console.log(isNew ? '✅ NEW USER CREATED' : '✅ EXISTING USER UPDATED', {
+            id: dbUser._id,
+            twitterId: dbUser.twitterId,
+            username: dbUser.username,
+            displayName: dbUser.displayName,
+            credits: dbUser.credits
+          });
 
-            console.log('✅ UPDATED EXISTING USER:', updateResult.matchedCount, 'matched,', updateResult.modifiedCount, 'modified');
-            
-            // OVERRIDE user object to use existing user data
-            user.id = existingUser._id.toString();
-            user.email = existingUser.email || user.email;
-            user.name = existingUser.displayName || user.name;
-            user.image = existingUser.profileImage || user.image;
-            
-            return true;
-          } else {
-            // Create new user with starting credits
-            const newUser: Omit<User, '_id'> = {
-              twitterId: twitterProfile.id,
-              username: twitterProfile.username || user.name?.replace(/\s+/g, '_').toLowerCase() || 'unknown',
-              displayName: twitterProfile.name || user.name || '',
-              avatar: twitterProfile.profile_image_url || user.image || undefined,
-              email: user.email ?? undefined,
-              credits: parseInt(process.env.USER_STARTING_CREDITS || '100'),
-              totalEarned: 0,
-              totalSpent: 0,
-              joinedAt: new Date(),
-              lastActive: new Date(),
-              isActive: true,
-              settings: {
-                autoEngage: false,
-                maxEngagementsPerDay: 50,
-                emailNotifications: true,
-                pushNotifications: true,
-                privacy: 'public',
-              },
-              stats: {
-                totalEngagements: 0,
-                successRate: 0,
-                averageEarningsPerDay: 0,
-                streakDays: 0,
-                rank: 0,
-              },
-            };
-
-            console.log('🆕 CREATING NEW USER - No existing user found');
-            
-            // COMPREHENSIVE final race condition check with all our detection methods
-            const finalRaceCheck = await db.collection('users').findOne({
-              $or: [
-                { twitterId: twitterProfile.id },
-                { 
-                  $and: [
-                    { displayName: twitterProfile.name },
-                    { username: twitterProfile.username }
-                  ]
-                },
-                {
-                  $and: [
-                    { email: user.email },
-                    { email: { $ne: null } },
-                    { email: { $ne: '' } }
-                  ]
-                }
-              ]
-            });
-
-            if (finalRaceCheck) {
-              console.log('🔒 RACE CONDITION PREVENTED - User was created during process:', {
-                existingId: finalRaceCheck._id,
-                action: 'USE_EXISTING'
-              });
-              user.id = finalRaceCheck._id.toString();
-              user.email = finalRaceCheck.email || user.email;
-              user.name = finalRaceCheck.displayName || user.name;
-              user.image = finalRaceCheck.profileImage || user.image;
-              return true;
-            }
-
-            console.log('📝 INSERTING NEW USER:', {
-              twitterId: newUser.twitterId,
-              name: newUser.displayName,
-              username: newUser.username,
-              credits: newUser.credits
-            });
-
-            const result = await db.collection('users').insertOne(newUser);
-
-            if (result.acknowledged) {
-              console.log('✅ NEW USER CREATED SUCCESSFULLY:', {
-                id: result.insertedId,
-                username: newUser.username,
-                displayName: newUser.displayName,
-                credits: newUser.credits,
-                email: newUser.email
-              });
-
-              // Set the user object for JWT session
-              user.id = result.insertedId.toString();
-              user.email = newUser.email;
-              user.name = newUser.displayName;
-              user.image = newUser.avatar;
-
-              // Create welcome credit transaction
-              await db.collection('credit_transactions').insertOne({
-                userId: result.insertedId.toString(),
-                type: 'bonus',
-                amount: parseInt(process.env.USER_STARTING_CREDITS || '2'),
-                balance: parseInt(process.env.USER_STARTING_CREDITS || '2'),
-                description: 'Welcome bonus - Account creation',
-                createdAt: new Date(),
-              });
-            }
-          }
+          // Set the user object for JWT session
+          user.id = dbUser._id.toString();
+          user.email = dbUser.email || user.email;
+          user.name = dbUser.displayName || user.name;
+          user.image = dbUser.avatar || dbUser.profileImage || user.image;
         }
         return true;
       } catch (error) {

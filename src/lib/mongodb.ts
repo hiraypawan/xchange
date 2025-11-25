@@ -47,12 +47,18 @@ export async function initializeDatabase() {
   try {
     const { db } = await connectToDatabase();
 
-    // Users collection indexes
-    await db.collection('users').createIndex({ twitterId: 1 }, { unique: true });
-    await db.collection('users').createIndex({ username: 1 }, { unique: true });
-    await db.collection('users').createIndex({ email: 1 }, { sparse: true });
+    // Users collection indexes with improved duplicate prevention
+    await db.collection('users').createIndex({ twitterId: 1 }, { unique: true, sparse: true });
+    await db.collection('users').createIndex({ username: 1 }, { unique: true, sparse: true });
+    await db.collection('users').createIndex({ email: 1 }, { unique: true, sparse: true });
     await db.collection('users').createIndex({ lastActive: -1 });
     await db.collection('users').createIndex({ credits: -1 });
+    
+    // Compound index to prevent duplicate display names with same username
+    await db.collection('users').createIndex(
+      { displayName: 1, username: 1 }, 
+      { unique: true, sparse: true }
+    );
 
     // Posts collection indexes
     await db.collection('posts').createIndex({ userId: 1 });

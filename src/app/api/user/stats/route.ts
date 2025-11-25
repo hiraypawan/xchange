@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
+import { UserManager } from '@/lib/user-management';
 
 // GET /api/user/stats - Get user statistics
 export async function GET(req: NextRequest) {
@@ -17,158 +18,125 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { db } = await connectToDatabase();
-    
-    // Enhanced user lookup strategy matching the auth flow
-    let user = null;
-    
-    console.log('Looking up user with identifiers:', {
+    console.log('Stats API - Looking up user with session data:', {
       id: session.user.id,
       twitterId: session.user.twitterId,
       email: session.user.email,
       name: session.user.name
     });
-    
-    // First: Try by ObjectId if session.user.id is a valid MongoDB ObjectId
-    if (session.user.id && session.user.id.match(/^[0-9a-fA-F]{24}$/)) {
-      try {
-        const { ObjectId } = await import('mongodb');
-        user = await db.collection('users').findOne({ 
-          _id: new ObjectId(session.user.id) 
-        });
-        console.log('ObjectId lookup result:', user ? 'FOUND' : 'NOT FOUND');
-      } catch (error) {
-        console.log('ObjectId lookup failed:', error);
-      }
-    }
-    
-    // Second: Try by twitterId if available
-    if (!user && session.user.twitterId) {
-      user = await db.collection('users').findOne({ 
-        twitterId: session.user.twitterId 
-      });
-      console.log('TwitterId lookup result:', user ? 'FOUND' : 'NOT FOUND');
-    }
-    
-    // Third: Try by email if available
-    if (!user && session.user.email) {
-      user = await db.collection('users').findOne({ 
-        email: session.user.email 
-      });
-      console.log('Email lookup result:', user ? 'FOUND' : 'NOT FOUND');
-    }
 
-    // If still no user found, try to create one (this should rarely happen if auth is working correctly)
-    if (!user) {
-      console.log('User not found, attempting to create new user');
+    let user = null;
+
+    try {
+      // First try to find existing user using UserManager
+      user = await UserManager.findExistingUser({
+        twitterId: session.user.twitterId || session.user.id, // Fallback to session.user.id for fallback auth
+        username: session.user.username || session.user.name?.replace(/\s+/g, '_').toLowerCase(),
+        displayName: session.user.name || '',
+        email: session.user.email || undefined,
+        profileImage: session.user.image || undefined
+      });
+
+      // If user doesn't exist, create one using UserManager
+      if (!user) {
+        console.log('User not found, creating new user via UserManager');
+        const { user: newUser } = await UserManager.ensureUser({
+          twitterId: session.user.twitterId || session.user.id, // Fallback to session.user.id
+          username: session.user.username || session.user.name?.replace(/\s+/g, '_').toLowerCase(),
+          displayName: session.user.name || 'Unknown User',
+          email: session.user.email || undefined,
+          profileImage: session.user.image || undefined
+        });
+        user = newUser;
+        console.log('✅ User created successfully via UserManager');
+      } else {
+        console.log('✅ User found via UserManager');
+      }
+    } catch (userManagerError) {
+      console.error('UserManager failed, falling back to basic user creation:', userManagerError);
       
-      // Validate we have minimum required data
-      if (!session.user.twitterId && !session.user.email) {
-        console.error('Cannot create user: missing both twitterId and email', {
-          sessionUser: {
-            id: session.user.id,
-            name: session.user.name,
-            image: session.user.image,
-            email: session.user.email,
-            twitterId: session.user.twitterId,
-            username: session.user.username
-          }
+      // Fallback: Try direct database operations
+      const { db } = await connectToDatabase();
+      
+      // Try to find by twitterId or session ID
+      const searchId = session.user.twitterId || session.user.id;
+      if (searchId) {
+        user = await db.collection('users').findOne({ 
+          twitterId: searchId 
         });
         
-        // Try to find user by session.user.id if it looks like a twitterId
-        if (session.user.id && !session.user.id.match(/^[0-9a-fA-F]{24}$/)) {
-          console.log('Trying to find user by session.user.id as twitterId:', session.user.id);
+        if (!user && session.user.email) {
           user = await db.collection('users').findOne({ 
-            twitterId: session.user.id 
+            email: session.user.email 
           });
-          if (user) {
-            console.log('Found user by session.user.id as twitterId');
-          }
         }
+      }
+      
+      // If still no user, create a minimal user record
+      if (!user && searchId) {
+        console.log('Creating minimal user record as fallback');
+        const newUser = {
+          twitterId: searchId,
+          username: session.user.username || session.user.name?.replace(/\s+/g, '_').toLowerCase() || 'unknown',
+          displayName: session.user.name || 'Unknown User',
+          email: session.user.email,
+          avatar: session.user.image,
+          credits: parseInt(process.env.USER_STARTING_CREDITS || '100'),
+          totalEarned: 0,
+          totalSpent: 0,
+          joinedAt: new Date(),
+          lastActive: new Date(),
+          isActive: true,
+          settings: {
+            autoEngage: false,
+            maxEngagementsPerDay: 50,
+            emailNotifications: true,
+            pushNotifications: true,
+            privacy: 'public',
+          },
+          stats: {
+            totalEngagements: 0,
+            successRate: 0,
+            averageEarningsPerDay: 0,
+            streakDays: 0,
+            rank: 0,
+          },
+        };
         
-        // If still no user and we have any identifying information, attempt creation
-        if (!user && (session.user.id || session.user.name)) {
-          console.log('Attempting user creation with available session data');
-          // We'll continue with creation below
-        } else if (!user) {
+        try {
+          const result = await db.collection('users').insertOne(newUser);
+          user = { ...newUser, _id: result.insertedId };
+          console.log('✅ Minimal user created successfully');
+        } catch (createError) {
+          console.error('Failed to create minimal user:', createError);
           return NextResponse.json(
             { 
-              error: 'User session incomplete - missing identification data',
-              debug: {
-                hasId: !!session.user.id,
-                hasEmail: !!session.user.email,
-                hasTwitterId: !!session.user.twitterId,
-                hasName: !!session.user.name
-              }
+              error: 'Unable to create or find user record',
+              details: 'Database operations failed'
             },
             { status: 400 }
           );
         }
       }
-      
-      // Use session.user.id as twitterId if it doesn't look like ObjectId and we don't have twitterId
-      const effectiveTwitterId = session.user.twitterId || 
-        (session.user.id && !session.user.id.match(/^[0-9a-fA-F]{24}$/) ? session.user.id : null);
-      
-      const newUser = {
-        twitterId: effectiveTwitterId,
-        email: session.user.email || null,
-        name: session.user.name || 'Unknown User',
-        username: session.user.username || session.user.name?.replace(/\s+/g, '').toLowerCase() || 'unknown',
-        displayName: session.user.name || 'Unknown User',
-        avatar: session.user.image || undefined,
-        credits: parseInt(process.env.USER_STARTING_CREDITS || '100'),
-        totalEarned: 0,
-        totalSpent: 0,
-        joinedAt: new Date(),
-        lastActive: new Date(),
-        isActive: true,
-        settings: {
-          autoEngage: false,
-          maxEngagementsPerDay: 50,
-          emailNotifications: true,
-          pushNotifications: true,
-          privacy: 'public',
-        },
-        stats: {
-          totalEngagements: 0,
-          successRate: 0,
-          averageEarningsPerDay: 0,
-          streakDays: 0,
-          rank: 0,
-        }
-      };
-      
-      console.log('Creating user with data:', {
-        twitterId: newUser.twitterId,
-        email: newUser.email,
-        name: newUser.name
-      });
-      
-      try {
-        const result = await db.collection('users').insertOne(newUser);
-        console.log('Created new user:', result.insertedId);
-        user = { ...newUser, _id: result.insertedId };
-        
-        // Create welcome transaction
-        if (session.user.twitterId || result.insertedId) {
-          await db.collection('credit_transactions').insertOne({
-            userId: session.user.twitterId || result.insertedId.toString(),
-            type: 'bonus',
-            amount: parseInt(process.env.USER_STARTING_CREDITS || '100'),
-            balance: parseInt(process.env.USER_STARTING_CREDITS || '100'),
-            description: 'Welcome bonus',
-            createdAt: new Date(),
-          });
-        }
-      } catch (createError) {
-        console.error('Failed to create user:', createError);
-        return NextResponse.json(
-          { error: 'User not found and could not be created: ' + (createError as Error).message },
-          { status: 500 }
-        );
-      }
     }
+
+    // Final check: if user still null, return an error
+    if (!user) {
+      return NextResponse.json(
+        { 
+          error: 'Unable to locate or create user',
+          details: 'User lookup and creation failed'
+        },
+        { status: 400 }
+      );
+    }
+
+    // Now we have a user, get the stats
+    console.log('✅ User ready for stats calculation:', {
+      id: user._id,
+      twitterId: user.twitterId,
+      displayName: user.displayName
+    });
 
     // Calculate statistics - use both possible userId formats for compatibility
     const userIdQueries = [user._id.toString()];

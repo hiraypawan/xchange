@@ -216,6 +216,31 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleCleanupDuplicates = async () => {
+    if (!confirm('This will merge duplicate users and combine their credits. Are you sure?')) {
+      return;
+    }
+
+    try {
+      console.log('🧹 Starting duplicate cleanup...');
+      const response = await fetch('/api/admin/cleanup-duplicates', {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Cleanup completed! Removed ${result.result.duplicatesRemoved} duplicates from ${result.result.originalCount} users. Credits merged successfully.`);
+        loadAdminData(); // Refresh the data
+      } else {
+        const error = await response.text();
+        alert('Cleanup failed: ' + error);
+      }
+    } catch (error) {
+      console.error('Cleanup error:', error);
+      alert('Cleanup failed: ' + error);
+    }
+  };
+
   console.log('Admin page render state:', { 
     status, 
     loading, 
@@ -461,6 +486,12 @@ export default function AdminDashboard() {
                   className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
                 >
                   Refresh
+                </button>
+                <button
+                  onClick={handleCleanupDuplicates}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                >
+                  Clean Duplicates
                 </button>
               </div>
               

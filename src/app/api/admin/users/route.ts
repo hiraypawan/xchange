@@ -106,6 +106,17 @@ export async function GET(request: NextRequest) {
     }));
 
     console.log(`✅ Loaded ${users.length} real users from database`);
+    
+    // Check for duplicates and log them
+    const duplicateCheck = new Map();
+    users.forEach(user => {
+      const key = user.email || user.name;
+      if (duplicateCheck.has(key)) {
+        console.log('🔍 Duplicate detected:', key, 'appears multiple times');
+      } else {
+        duplicateCheck.set(key, user);
+      }
+    });
 
     return NextResponse.json(users);
   } catch (error) {

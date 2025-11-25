@@ -81,6 +81,32 @@ export const authOptions: NextAuthOptions = {
               credits: dbUser.credits
             });
 
+            // ENSURE ALL USERS HAVE MINIMUM 2 CREDITS
+            if (dbUser.credits < 2) {
+              try {
+                const { db } = await connectToDatabase();
+                await db.collection('users').updateOne(
+                  { _id: dbUser._id },
+                  { $set: { credits: 2 } }
+                );
+                dbUser.credits = 2;
+                console.log('🔄 CREDITS UPDATED TO 2 for user:', dbUser._id);
+                
+                // Create credit transaction
+                await db.collection('credit_transactions').insertOne({
+                  userId: dbUser._id.toString(),
+                  type: 'starting_bonus',
+                  amount: 2 - (dbUser.credits || 0),
+                  balance: 2,
+                  description: 'Starting credits - ensuring minimum 2 credits',
+                  createdAt: new Date(),
+                  metadata: { reason: 'auth_callback_credit_fix' }
+                });
+              } catch (creditError) {
+                console.error('⚠️ Failed to ensure 2 credits:', creditError);
+              }
+            }
+
             // Set the user object for JWT session with all needed properties
             user.id = dbUser._id.toString();
             user.email = dbUser.email || user.email;
@@ -100,7 +126,7 @@ export const authOptions: NextAuthOptions = {
             user.id = twitterProfile.id; // Use Twitter ID as fallback
             (user as any).twitterId = twitterProfile.id;
             (user as any).username = twitterProfile.username || user.name?.replace(/\s+/g, '_').toLowerCase();
-            (user as any).credits = 0; // Default credits for fallback
+            (user as any).credits = 2; // Default 2 credits for fallback
             
             console.log('✅ FALLBACK AUTH - User signed in without database:', {
               twitterId: twitterProfile.id,
@@ -123,7 +149,7 @@ export const authOptions: NextAuthOptions = {
           user.id = (profile as TwitterProfile).id; // Use Twitter ID as fallback
           (user as any).twitterId = (profile as TwitterProfile).id;
           (user as any).username = (profile as TwitterProfile).username || user.name?.replace(/\s+/g, '_').toLowerCase();
-          (user as any).credits = 0; // Default credits for emergency fallback
+          (user as any).credits = 2; // Default 2 credits for emergency fallback
         }
         return true; // Changed from false to true to prevent lockout
       }

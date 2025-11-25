@@ -1,11 +1,6 @@
 import { NextAuthOptions, Profile } from 'next-auth';
 import TwitterProvider from 'next-auth/providers/twitter';
-import { MongoDBAdapter } from '@next-auth/mongodb-adapter';
-import clientPromise from './mongodb';
 import { connectToDatabase } from './mongodb';
-import { User } from '@/types';
-import { ObjectId } from 'mongodb';
-import { UserManager } from './user-management';
 
 // Define Twitter profile interface
 interface TwitterProfile extends Profile {
@@ -15,10 +10,128 @@ interface TwitterProfile extends Profile {
   profile_image_url?: string;
 }
 
+// Simple, reliable user creation function
+async function createOrUpdateUser(twitterProfile: TwitterProfile, userInfo: any) {
+  try {
+    console.log('🔧 CREATING/UPDATING USER:', {
+      twitterId: twitterProfile.id,
+      name: twitterProfile.name,
+      username: twitterProfile.username
+    });
+
+    const { db } = await connectToDatabase();
+    
+    // Check if user exists
+    const existingUser = await db.collection('users').findOne({
+      twitterId: twitterProfile.id
+    });
+
+    if (existingUser) {
+      console.log('👤 EXISTING USER FOUND:', existingUser._id);
+      
+      // Update last active and ensure 2 credits
+      const updateData: any = {
+        lastActive: new Date(),
+        displayName: twitterProfile.name || existingUser.displayName,
+        avatar: twitterProfile.profile_image_url || existingUser.avatar
+      };
+
+      // Ensure user has at least 2 credits
+      if ((existingUser.credits || 0) < 2) {
+        updateData.credits = 2;
+        console.log('🔄 UPDATING CREDITS TO 2 for existing user');
+        
+        // Create credit transaction
+        await db.collection('credit_transactions').insertOne({
+          userId: existingUser._id.toString(),
+          type: 'credit_adjustment',
+          amount: 2 - (existingUser.credits || 0),
+          balance: 2,
+          description: 'Ensuring minimum 2 credits',
+          createdAt: new Date(),
+          metadata: { reason: 'login_credit_check' }
+        });
+      }
+
+      await db.collection('users').updateOne(
+        { _id: existingUser._id },
+        { $set: updateData }
+      );
+
+      const updatedUser = await db.collection('users').findOne({ _id: existingUser._id });
+      console.log('✅ USER UPDATED:', {
+        id: updatedUser?._id,
+        credits: updatedUser?.credits
+      });
+      
+      return updatedUser;
+    } else {
+      // Create new user
+      console.log('🆕 CREATING NEW USER...');
+      
+      const newUser = {
+        twitterId: twitterProfile.id,
+        username: twitterProfile.username || twitterProfile.name?.replace(/\s+/g, '_').toLowerCase() || `user_${Date.now()}`,
+        displayName: twitterProfile.name || userInfo.name || 'User',
+        email: userInfo.email || null,
+        avatar: twitterProfile.profile_image_url || userInfo.image,
+        credits: 2, // START WITH 2 CREDITS
+        totalEarned: 2,
+        totalSpent: 0,
+        joinedAt: new Date(),
+        lastActive: new Date(),
+        isActive: true,
+        settings: {
+          autoEngage: false,
+          maxEngagementsPerDay: 50,
+          emailNotifications: true,
+          pushNotifications: true,
+          privacy: 'public',
+        },
+        stats: {
+          totalEngagements: 0,
+          successRate: 0,
+          averageEarningsPerDay: 0,
+          streakDays: 0,
+          rank: 0,
+        },
+        createdVia: 'twitter_auth'
+      };
+
+      const insertResult = await db.collection('users').insertOne(newUser);
+      console.log('✅ NEW USER CREATED:', insertResult.insertedId);
+
+      // Create starting credits transaction
+      await db.collection('credit_transactions').insertOne({
+        userId: insertResult.insertedId.toString(),
+        type: 'starting_bonus',
+        amount: 2,
+        balance: 2,
+        description: 'Welcome bonus - 2 starting credits',
+        createdAt: new Date(),
+        metadata: { 
+          reason: 'new_user_signup',
+          twitterId: twitterProfile.id 
+        }
+      });
+
+      const createdUser = await db.collection('users').findOne({ _id: insertResult.insertedId });
+      console.log('✅ USER VERIFICATION:', {
+        id: createdUser?._id,
+        twitterId: createdUser?.twitterId,
+        credits: createdUser?.credits
+      });
+
+      return createdUser;
+    }
+
+  } catch (error) {
+    console.error('❌ USER CREATION/UPDATE FAILED:', error);
+    throw error;
+  }
+}
+
 export const authOptions: NextAuthOptions = {
-  // Remove MongoDB adapter to prevent automatic user creation
-  // We'll handle user creation manually to prevent duplicates
-  // adapter: MongoDBAdapter(clientPromise),
   providers: [
     TwitterProvider({
       clientId: process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID!,
@@ -31,285 +144,95 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  // Remove custom pages to use NextAuth's default flow
-  // pages: {
-  //   signIn: '/auth/signin',
-  //   signOut: '/auth/signout', 
-  //   error: '/auth/error',
-  // },
   session: {
-    strategy: 'jwt', // Use JWT since we removed database adapter
+    strategy: 'jwt',
     maxAge: 7 * 24 * 60 * 60, // 7 days
     updateAge: 24 * 60 * 60, // 1 day
   },
   callbacks: {
     async signIn({ user, account, profile }) {
-      try {
-        console.log('🔐 SIGNIN ATTEMPT - AUTH CALLBACK TRIGGERED:', {
-          provider: account?.provider,
-          userName: user.name,
-          userEmail: user.email,
-          profileId: (profile as TwitterProfile)?.id,
-          timestamp: new Date().toISOString(),
-          userAgent: 'NextAuth signIn callback'
-        });
+      console.log('🔐 SIGN IN STARTED:', {
+        provider: account?.provider,
+        userId: user.id,
+        userName: user.name,
+        timestamp: new Date().toISOString()
+      });
 
-        if (account?.provider === 'twitter' && profile) {
-          const twitterProfile = profile as TwitterProfile;
+      if (account?.provider === 'twitter' && profile) {
+        const twitterProfile = profile as TwitterProfile;
+        
+        try {
+          // Create or update user in database
+          const dbUser = await createOrUpdateUser(twitterProfile, user);
           
-          console.log('🔍 SIGNIN ATTEMPT - Checking for existing user...', {
-            twitterId: twitterProfile.id,
-            name: twitterProfile.name,
-            username: twitterProfile.username
-          });
-
-          try {
-            // Use centralized user management to prevent duplicates
-            const { user: dbUser, isNew } = await UserManager.ensureUser({
-              twitterId: twitterProfile.id,
-              username: twitterProfile.username || user.name?.replace(/\s+/g, '_').toLowerCase(),
-              displayName: twitterProfile.name || user.name || '',
-              email: user.email || undefined,
-              profileImage: twitterProfile.profile_image_url || user.image || undefined
-            });
-
-            console.log(isNew ? '✅ NEW USER CREATED' : '✅ EXISTING USER UPDATED', {
-              id: dbUser._id,
-              twitterId: dbUser.twitterId,
-              username: dbUser.username,
-              displayName: dbUser.displayName,
-              credits: dbUser.credits
-            });
-
-            // ENSURE ALL USERS HAVE MINIMUM 2 CREDITS
-            if (dbUser.credits < 2) {
-              try {
-                const { db } = await connectToDatabase();
-                await db.collection('users').updateOne(
-                  { _id: dbUser._id },
-                  { $set: { credits: 2 } }
-                );
-                dbUser.credits = 2;
-                console.log('🔄 CREDITS UPDATED TO 2 for user:', dbUser._id);
-                
-                // Create credit transaction
-                await db.collection('credit_transactions').insertOne({
-                  userId: dbUser._id.toString(),
-                  type: 'starting_bonus',
-                  amount: 2 - (dbUser.credits || 0),
-                  balance: 2,
-                  description: 'Starting credits - ensuring minimum 2 credits',
-                  createdAt: new Date(),
-                  metadata: { reason: 'auth_callback_credit_fix' }
-                });
-              } catch (creditError) {
-                console.error('⚠️ Failed to ensure 2 credits:', creditError);
-              }
-            }
-
-            // Set the user object for JWT session with all needed properties
+          if (dbUser) {
+            // Set user data for JWT
             user.id = dbUser._id.toString();
+            user.name = dbUser.displayName;
             user.email = dbUser.email || user.email;
-            user.name = dbUser.displayName || user.name;
-            user.image = dbUser.avatar || dbUser.profileImage || user.image;
+            user.image = dbUser.avatar || user.image;
             
-            // Store Twitter ID for API calls
+            // Store additional data
             (user as any).twitterId = dbUser.twitterId;
             (user as any).username = dbUser.username;
             (user as any).credits = dbUser.credits;
             
-          } catch (dbError) {
-            console.warn('⚠️ UserManager failed, falling back to simple auth:', dbError);
-            
-            // Fallback: Allow sign-in without database operations
-            // This allows access to fix the database issues
-            user.id = twitterProfile.id; // Use Twitter ID as fallback
-            (user as any).twitterId = twitterProfile.id;
-            (user as any).username = twitterProfile.username || user.name?.replace(/\s+/g, '_').toLowerCase();
-            (user as any).credits = 2; // Default 2 credits for fallback
-            
-            console.log('✅ FALLBACK AUTH - User signed in without database:', {
-              twitterId: twitterProfile.id,
-              name: twitterProfile.name,
-              fallback: true
+            console.log('✅ SIGN IN SUCCESSFUL:', {
+              userId: user.id,
+              twitterId: dbUser.twitterId,
+              credits: dbUser.credits
             });
+            
+            return true;
           }
+        } catch (error) {
+          console.error('❌ SIGN IN ERROR:', error);
+          // Allow sign in but with fallback data
+          user.id = twitterProfile.id;
+          (user as any).twitterId = twitterProfile.id;
+          (user as any).username = twitterProfile.username;
+          (user as any).credits = 0; // Will be fixed later
+          
+          console.log('⚠️ FALLBACK SIGN IN - Database user creation failed');
+          return true; // Still allow sign in
         }
-        return true;
-      } catch (error) {
-        console.error('❌ ERROR in signIn callback (allowing fallback):', error);
-        console.error('❌ User data:', { name: user.name, email: user.email });
-        console.error('❌ Account data:', account);
-        console.error('❌ Profile data:', profile);
-        
-        // Allow sign-in even with errors to prevent lockout
-        // User can fix database issues after signing in
-        console.log('🔓 EMERGENCY FALLBACK - Allowing sign-in despite errors');
-        if (account?.provider === 'twitter' && profile) {
-          user.id = (profile as TwitterProfile).id; // Use Twitter ID as fallback
-          (user as any).twitterId = (profile as TwitterProfile).id;
-          (user as any).username = (profile as TwitterProfile).username || user.name?.replace(/\s+/g, '_').toLowerCase();
-          (user as any).credits = 2; // Default 2 credits for emergency fallback
-        }
-        return true; // Changed from false to true to prevent lockout
       }
+      
+      return true;
     },
-    
-    async jwt({ token, user, account, profile }) {
-      // This runs whenever a JWT is accessed
-      // Store user data in the token for session access
+
+    async jwt({ token, user }) {
+      // Store user data in token
       if (user) {
         token.id = user.id;
         token.twitterId = (user as any).twitterId;
         token.username = (user as any).username;
         token.credits = (user as any).credits;
-        token.userId = user.id;
       }
-      
       return token;
     },
-    
+
     async session({ session, token }) {
-      try {
-        console.log('Session callback - token:', token);
-        
-        // Transfer token data to session
-        if (token) {
-          session.user.id = token.id as string;
-          session.user.twitterId = token.twitterId as string;
-          session.user.username = token.username as string;
-          
-          // Try to get fresh user data from database if twitterId is available
-          if (token.twitterId) {
-            try {
-              const { db } = await connectToDatabase();
-              const dbUser = await db.collection('users').findOne({ 
-                twitterId: token.twitterId 
-              });
-              
-              if (dbUser) {
-                session.user.id = dbUser._id.toString();
-                session.user.twitterId = dbUser.twitterId;
-                session.user.username = dbUser.username;
-                session.user.credits = dbUser.credits;
-                
-                console.log('Session callback - fresh data from DB:', {
-                  id: dbUser._id.toString(),
-                  twitterId: dbUser.twitterId,
-                  credits: dbUser.credits
-                });
-              }
-            } catch (dbError) {
-              console.warn('Session callback - DB lookup failed, using token data:', dbError);
-              // Fall back to token data
-              session.user.credits = token.credits as number;
-            }
-          }
-        }
-        
-        console.log('Session callback - final session:', {
-          id: session.user.id,
-          twitterId: session.user.twitterId,
-          username: session.user.username,
-          credits: session.user.credits
-        });
-        
-        return session;
-      } catch (error) {
-        console.error('Session callback error:', error);
-        return session;
+      // Transfer token data to session
+      if (token) {
+        session.user.id = token.id as string;
+        session.user.twitterId = token.twitterId as string;
+        session.user.username = token.username as string;
+        session.user.credits = token.credits as number;
       }
+      
+      console.log('📋 SESSION CREATED:', {
+        userId: session.user.id,
+        twitterId: session.user.twitterId,
+        credits: session.user.credits
+      });
+      
+      return session;
     },
   },
   events: {
     async signOut({ token }) {
-      // Clean up user sessions if needed
-      try {
-        const { db } = await connectToDatabase();
-        await db.collection('user_sessions').deleteMany({
-          userId: token?.userId,
-        });
-      } catch (error) {
-        console.error('Sign out cleanup error:', error);
-      }
+      console.log('👋 USER SIGNED OUT:', token?.id);
     },
   },
 };
-
-// Helper function to get current user from database
-export async function getCurrentUser(twitterId: string): Promise<User | null> {
-  try {
-    const { db } = await connectToDatabase();
-    const user = await db.collection('users').findOne({ twitterId });
-    return user ? (user as any) as User : null;
-  } catch (error) {
-    console.error('Get current user error:', error);
-    return null;
-  }
-}
-
-// Helper function to update user credits
-export async function updateUserCredits(
-  userId: string, 
-  amount: number, 
-  type: string,
-  description: string,
-  metadata?: any
-): Promise<boolean> {
-  try {
-    const { db } = await connectToDatabase();
-    
-    // Start transaction
-    const client = await clientPromise;
-    const session = client.startSession();
-    
-    try {
-      await session.withTransaction(async () => {
-        // Get current user
-        const objectId = new ObjectId(userId);
-        const user = await db.collection('users').findOne(
-          { _id: objectId },
-          { session }
-        );
-        
-        if (!user) {
-          throw new Error('User not found');
-        }
-        
-        const newBalance = user.credits + amount;
-        
-        if (newBalance < 0) {
-          throw new Error('Insufficient credits');
-        }
-        
-        // Update user credits
-        await db.collection('users').updateOne(
-          { _id: objectId },
-          { 
-            $set: { credits: newBalance },
-            $inc: amount > 0 ? { totalEarned: amount } : { totalSpent: Math.abs(amount) }
-          },
-          { session }
-        );
-        
-        // Create transaction record
-        await db.collection('credit_transactions').insertOne({
-          userId: objectId,
-          type,
-          amount,
-          balance: newBalance,
-          description,
-          metadata,
-          createdAt: new Date(),
-        }, { session });
-      });
-      
-      return true;
-    } finally {
-      await session.endSession();
-    }
-  } catch (error) {
-    console.error('Update user credits error:', error);
-    return false;
-  }
-}

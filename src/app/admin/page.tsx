@@ -182,33 +182,6 @@ export default function AdminDashboard() {
   };
 
 
-  const handleCleanupDuplicates = async () => {
-    if (!confirm('Are you sure you want to clean up duplicate users? This action cannot be undone.')) {
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      const response = await fetch('/api/admin/cleanup-duplicates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        alert(`Cleanup successful! Removed ${data.duplicatesRemoved} duplicate users.`);
-        loadAdminData(); // Reload data
-      } else {
-        alert(`Cleanup failed: ${data.error}`);
-      }
-    } catch (error) {
-      console.error('Cleanup failed:', error);
-      alert('Cleanup failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAddCredits = async () => {
     if (!selectedUser || !creditAmount) return;

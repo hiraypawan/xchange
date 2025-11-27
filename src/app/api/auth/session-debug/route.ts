@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       cookies: {
         sessionToken: req.cookies.get('next-auth.session-token')?.value ? '[EXISTS]' : '[MISSING]',
         csrfToken: req.cookies.get('next-auth.csrf-token')?.value ? '[EXISTS]' : '[MISSING]',
-        allCookies: Array.from(req.cookies.keys())
+        allCookies: req.cookies.getAll().map(cookie => cookie.name)
       },
       headers: {
         userAgent: req.headers.get('user-agent'),

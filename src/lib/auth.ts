@@ -394,10 +394,10 @@ export const authOptions: NextAuthOptions = {
                 console.error('🚨 DOUBLE FAILURE: User not found by twitterId OR dbId');
                 
                 // Emergency fallback - create minimal session data
-                session.user.id = token.id || 'unknown';
-                session.user.twitterId = token.twitterId;
+                session.user.id = (token.id && typeof token.id === 'string') ? token.id : 'unknown';
+                session.user.twitterId = (token.twitterId && typeof token.twitterId === 'string') ? token.twitterId : 'unknown';
                 session.user.credits = 2;
-                session.user.name = token.displayName || 'User';
+                session.user.name = (token.displayName && typeof token.displayName === 'string') ? token.displayName : 'User';
                 
                 console.log('🆘 EMERGENCY SESSION created with minimal data');
               }

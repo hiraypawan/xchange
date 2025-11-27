@@ -50,18 +50,28 @@ export async function GET(req: NextRequest) {
     let recentTransactions: any[] = [];
 
     try {
-      const userIdQueries = [user._id.toString(), user._id];
+      // CRITICAL FIX: Use correct userId format for each collection
+      // Engagements use ObjectId, credit_transactions use string
+      const userObjectId = user._id;
+      const userStringId = user._id.toString();
+      
+      console.log('📊 STATS QUERY - Using IDs:', {
+        objectId: userObjectId,
+        stringId: userStringId
+      });
       
       const [engCount, compCount, weeklyResult, recentTx] = await Promise.all([
-        db.collection('engagements').countDocuments({ userId: { $in: userIdQueries } }).catch(() => 0),
+        // Use ObjectId for engagements (they store userId as ObjectId)
+        db.collection('engagements').countDocuments({ userId: userObjectId }).catch(() => 0),
         db.collection('engagements').countDocuments({ 
-          userId: { $in: userIdQueries }, 
+          userId: userObjectId, 
           status: 'completed' 
         }).catch(() => 0),
+        // Use ObjectId for credit_transactions (now storing as ObjectId)
         db.collection('credit_transactions').aggregate([
           {
             $match: {
-              userId: { $in: userIdQueries },
+              userId: userObjectId, // Now using ObjectId format
               type: 'earn',
               createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
             }
@@ -69,7 +79,7 @@ export async function GET(req: NextRequest) {
           { $group: { _id: null, total: { $sum: '$amount' } } }
         ]).toArray().catch(() => []),
         db.collection('credit_transactions')
-          .find({ userId: { $in: userIdQueries } })
+          .find({ userId: userObjectId }) // Now using ObjectId format
           .sort({ createdAt: -1 })
           .limit(5)
           .toArray()

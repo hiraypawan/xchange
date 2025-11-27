@@ -44,7 +44,7 @@ async function createOrUpdateUser(twitterProfile: TwitterProfile, userInfo: any)
         
         // Create credit transaction
         await db.collection('credit_transactions').insertOne({
-          userId: existingUser._id.toString(),
+          userId: existingUser._id, // FIX: Store as ObjectId
           type: 'credit_adjustment',
           amount: 2 - (existingUser.credits || 0),
           balance: 2,
@@ -86,8 +86,8 @@ async function createOrUpdateUser(twitterProfile: TwitterProfile, userInfo: any)
         displayName: twitterProfile.name || userInfo.name || 'User',
         email: userInfo.email || null,
         avatar: twitterProfile.profile_image_url || userInfo.image,
-        credits: 2, // START WITH 2 CREDITS
-        totalEarned: 2,
+        credits: 100, // REQUIREMENT: Start with 100 credits
+        totalEarned: 100,
         totalSpent: 0,
         joinedAt: new Date(),
         lastActive: new Date(),
@@ -115,10 +115,10 @@ async function createOrUpdateUser(twitterProfile: TwitterProfile, userInfo: any)
 
       // Create starting credits transaction
       await db.collection('credit_transactions').insertOne({
-        userId: insertResult.insertedId.toString(),
-        type: 'starting_bonus',
-        amount: 2,
-        balance: 2,
+        userId: insertResult.insertedId, // FIX: Store as ObjectId
+        type: 'bonus',
+        amount: 100,
+        balance: 100,
         description: 'Welcome bonus - 2 starting credits',
         createdAt: new Date(),
         metadata: { 
@@ -249,14 +249,9 @@ export const authOptions: NextAuthOptions = {
           }
         } catch (error) {
           console.error('❌ SIGN IN ERROR:', error);
-          // Allow sign in but with fallback data
-          user.id = twitterProfile.id;
-          (user as any).twitterId = twitterProfile.id;
-          (user as any).username = twitterProfile.username;
-          (user as any).credits = 0; // Will be fixed later
-          
-          console.log('⚠️ FALLBACK SIGN IN - Database user creation failed');
-          return true; // Still allow sign in
+          // CRITICAL FIX: Do not allow sign-in if database operation fails.
+          // Returning false will show an error to the user on the sign-in page.
+          return false;
         }
       }
       

@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
       
       // Create credit transaction record
       await db.collection('credit_transactions').insertOne({
-        userId: user._id.toString(),
+        userId: user._id, // FIX: Store as ObjectId for consistency
         type: 'credit_adjustment',
         amount: 2 - (user.credits || 0),
         balance: 2,

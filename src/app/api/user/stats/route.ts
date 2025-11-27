@@ -166,7 +166,7 @@ export async function GET(req: NextRequest) {
     let totalEngagements = 0;
     let completedEngagements = 0;
     let weeklyEarnings = 0;
-    let recentTransactions = [];
+    let recentTransactions: any[] = [];
 
     try {
       const userIdQueries = [user._id.toString(), user._id];

@@ -16,48 +16,72 @@ export async function GET(req: NextRequest) {
       }, { status: 401 });
     }
 
+    console.log('🔍 Fetching users from MongoDB...');
     const { db } = await connectToDatabase();
     
-    // Get all users
+    // Get all users with proper sort and projection
     const users = await db.collection('users')
-      .find({})
-      .sort({ joinedAt: -1 })
+      .find({}, {
+        projection: {
+          _id: 1,
+          displayName: 1,
+          username: 1,
+          email: 1,
+          avatar: 1,
+          image: 1,
+          credits: 1,
+          totalEarned: 1,
+          totalSpent: 1,
+          joinedAt: 1,
+          createdAt: 1,
+          lastActive: 1,
+          isBanned: 1,
+          isActive: 1,
+          stats: 1
+        }
+      })
+      .sort({ joinedAt: -1, createdAt: -1 })
       .limit(100)
       .toArray();
-
-    // Get user count
-    const totalUsers = await db.collection('users').countDocuments();
     
-    // Get credit transactions count
-    const totalTransactions = await db.collection('credit_transactions').countDocuments();
+    console.log(`✅ Found ${users.length} users`);
+    if (users.length > 0) {
+      console.log('📋 Sample user:', JSON.stringify(users[0], null, 2));
+    }
 
-    const userList = users.map(user => ({
-      id: user._id.toString(),
-      twitterId: user.twitterId,
-      username: user.username,
-      displayName: user.displayName,
-      email: user.email,
-      credits: user.credits || 0,
-      totalEarned: user.totalEarned || 0,
-      totalSpent: user.totalSpent || 0,
-      joinedAt: user.joinedAt,
-      lastActive: user.lastActive,
-      isActive: user.isActive,
-      createdVia: user.createdVia || 'unknown'
-    }));
+    // Map users to the required format
+    console.log('🔄 Mapping users to frontend format...');
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        users: userList,
-        stats: {
-          totalUsers,
-          totalTransactions,
-          totalCreditsIssued: userList.reduce((sum, user) => sum + user.credits, 0)
-        }
-      },
-      message: `Found ${totalUsers} users`
-    });
+    const userList = users.map(user => {
+      try {
+        const mappedUser = {
+          id: user._id.toString(),
+          name: user.displayName || user.username || 'Unknown User',
+          email: user.email || `${user.username}@twitter.com`,
+          image: user.avatar || user.image || '/default-avatar.png',
+          credits: user.credits || 0,
+          totalEarned: user.totalEarned || 0,
+          totalSpent: user.totalSpent || 0,
+          createdAt: user.joinedAt || user.createdAt || new Date().toISOString(),
+          lastActive: user.lastActive || new Date().toISOString(),
+          isBanned: user.isBanned || false,
+          engagementCount: user.stats?.totalEngagements || 0,
+          status: user.isActive ? 'active' : 'inactive'
+        };
+        return mappedUser;
+      } catch (err) {
+        console.error('Error mapping user:', user._id, err);
+        return null;
+      }
+    }).filter(Boolean);
+
+    console.log('✅ Successfully mapped users:', userList.length);
+    if (userList.length > 0) {
+      console.log('📋 Sample mapped user:', JSON.stringify(userList[0], null, 2));
+    }
+
+    // Return just the user list as the frontend expects
+    return NextResponse.json(userList);
 
   } catch (error) {
     console.error('Admin users API error:', error);

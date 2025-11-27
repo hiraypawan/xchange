@@ -1,21 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
-// Check if user is admin
-function isAdmin(session: any) {
-  return session?.user?.email === 'your-email@example.com' || 
-         session?.user?.name === 'Pawan Hiray' ||
-         session?.user?.id === 'your-twitter-user-id';
+// Check admin session cookie
+function checkAdminSession(request: NextRequest) {
+  try {
+    const adminSessionCookie = request.cookies.get('admin_session');
+    if (!adminSessionCookie?.value) {
+      return false;
+    }
+    
+    const sessionData = JSON.parse(adminSessionCookie.value);
+    return sessionData.verified && sessionData.expires > Date.now();
+  } catch (error) {
+    return false;
+  }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session || !isAdmin(session)) {
+    // Check admin authentication using cookie-based system
+    if (!checkAdminSession(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -25,9 +30,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
-    // Prevent admin from deleting themselves
-    if (userId === session.user?.id) {
-      return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
+    // Basic validation - prevent common admin usernames from being deleted
+    if (typeof userId === 'string' && (userId.toLowerCase().includes('admin') || userId.toLowerCase().includes('pawan'))) {
+      return NextResponse.json({ error: 'Cannot delete admin account' }, { status: 400 });
     }
 
     const { db } = await connectToDatabase();
@@ -43,11 +48,11 @@ export async function DELETE(request: NextRequest) {
 
     // Log admin action before deletion
     await db.collection('admin_logs').insertOne({
-      adminId: session.user?.id || session.user?.name,
-      adminName: session.user?.name,
+      adminId: 'admin',
+      adminName: 'Admin User',
       action: 'DELETE_USER',
       targetUserId: userObjectId,
-      details: `User account deleted by admin ${session.user?.name}`,
+      details: `User account deleted by admin`,
       metadata: {
         deletedUserName: userToDelete.name,
         deletedUserEmail: userToDelete.email,
@@ -74,7 +79,7 @@ export async function DELETE(request: NextRequest) {
 
     await Promise.all(deleteOperations);
 
-    console.log(`Admin ${session.user?.name} deleted user ${userId}`);
+    console.log(`Admin deleted user ${userId}`);
 
     return NextResponse.json({ 
       success: true, 

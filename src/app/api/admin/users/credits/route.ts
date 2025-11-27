@@ -1,21 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
-// Check if user is admin
-function isAdmin(session: any) {
-  return session?.user?.email === 'your-email@example.com' || 
-         session?.user?.name === 'Pawan Hiray' ||
-         session?.user?.id === 'your-twitter-user-id';
+// Check admin session cookie
+function checkAdminSession(request: NextRequest) {
+  try {
+    const adminSessionCookie = request.cookies.get('admin_session');
+    if (!adminSessionCookie?.value) {
+      return false;
+    }
+    
+    const sessionData = JSON.parse(adminSessionCookie.value);
+    return sessionData.verified && sessionData.expires > Date.now();
+  } catch (error) {
+    return false;
+  }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session || !isAdmin(session)) {
+    // Check admin authentication using cookie-based system
+    if (!checkAdminSession(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -70,8 +75,8 @@ export async function POST(request: NextRequest) {
       amount: amount,
       type: type,
       description: `Admin credit adjustment: ${amount > 0 ? '+' : ''}${amount} credits`,
-      adminId: session.user?.id || session.user?.name,
-      adminName: session.user?.name,
+      adminId: 'admin',
+      adminName: 'Admin User',
       previousBalance: currentCredits,
       newBalance: newCredits,
       createdAt: new Date(),
@@ -80,8 +85,8 @@ export async function POST(request: NextRequest) {
 
     // Log admin action
     await db.collection('admin_logs').insertOne({
-      adminId: session.user?.id || session.user?.name,
-      adminName: session.user?.name,
+      adminId: 'admin',
+      adminName: 'Admin User',
       action: 'ADJUST_CREDITS',
       targetUserId: userObjectId,
       details: `Credits adjusted by ${amount}. Previous balance: ${currentCredits}, New balance: ${newCredits}`,
@@ -95,7 +100,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date()
     });
 
-    console.log(`Admin ${session.user?.name} adjusted credits for user ${userId} by ${amount}. New balance: ${newCredits}`);
+    console.log(`Admin adjusted credits for user ${userId} by ${amount}. New balance: ${newCredits}`);
 
     return NextResponse.json({ 
       success: true, 

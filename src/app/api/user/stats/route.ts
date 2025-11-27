@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 // Force dynamic rendering and disable caching
 export const dynamic = 'force-dynamic';
@@ -22,9 +23,38 @@ export async function GET(req: NextRequest) {
     const { db } = await connectToDatabase();
 
     // Securely find the user by their ID from the session
-    const { ObjectId } = require('mongodb');
-    const userId = new ObjectId(session.user.id);
-    const user = await db.collection('users').findOne({ _id: userId });
+    let user = null;
+
+    console.log('📊 STATS - Session data:', {
+      userId: session.user.id,
+      twitterId: session.user.twitterId,
+      isValidObjectId: session.user.id ? ObjectId.isValid(session.user.id) : false
+    });
+
+    // CRITICAL FIX: Validate session.user.id before creating ObjectId
+    // It might be a Twitter ID string from a fallback login, which is not a valid ObjectId.
+    if (session.user.id && ObjectId.isValid(session.user.id)) {
+      try {
+        const userId = new ObjectId(session.user.id);
+        user = await db.collection('users').findOne({ _id: userId });
+        console.log('📊 STATS - User found by ObjectId:', user ? 'SUCCESS' : 'NOT_FOUND');
+      } catch (error) {
+        console.log('📊 STATS - ObjectId lookup failed:', error);
+      }
+    }
+
+    // If user not found by _id, try finding by twitterId as a fallback.
+    // The session.user.twitterId is more reliable.
+    if (!user && session.user.twitterId) {
+      user = await db.collection('users').findOne({ twitterId: session.user.twitterId });
+      console.log('📊 STATS - User found by twitterId:', user ? 'SUCCESS' : 'NOT_FOUND');
+    }
+
+    // Final fallback: try using session.user.id as twitterId (for fallback sessions)
+    if (!user && session.user.id) {
+      user = await db.collection('users').findOne({ twitterId: session.user.id });
+      console.log('📊 STATS - User found by id-as-twitterId:', user ? 'SUCCESS' : 'NOT_FOUND');
+    }
 
     // If we STILL don't have a user, there's a major issue
     if (!user) {
@@ -50,28 +80,17 @@ export async function GET(req: NextRequest) {
     let recentTransactions: any[] = [];
 
     try {
-      // CRITICAL FIX: Use correct userId format for each collection
-      // Engagements use ObjectId, credit_transactions use string
-      const userObjectId = user._id;
-      const userStringId = user._id.toString();
-      
-      console.log('📊 STATS QUERY - Using IDs:', {
-        objectId: userObjectId,
-        stringId: userStringId
-      });
-      
       const [engCount, compCount, weeklyResult, recentTx] = await Promise.all([
-        // Use ObjectId for engagements (they store userId as ObjectId)
-        db.collection('engagements').countDocuments({ userId: userObjectId }).catch(() => 0),
+        // All collections should now be using ObjectId for userId
+        db.collection('engagements').countDocuments({ userId: user._id }).catch(() => 0),
         db.collection('engagements').countDocuments({ 
-          userId: userObjectId, 
+          userId: user._id, 
           status: 'completed' 
         }).catch(() => 0),
-        // Use ObjectId for credit_transactions (now storing as ObjectId)
         db.collection('credit_transactions').aggregate([
           {
             $match: {
-              userId: userObjectId, // Now using ObjectId format
+              userId: user._id,
               type: 'earn',
               createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
             }
@@ -79,7 +98,7 @@ export async function GET(req: NextRequest) {
           { $group: { _id: null, total: { $sum: '$amount' } } }
         ]).toArray().catch(() => []),
         db.collection('credit_transactions')
-          .find({ userId: userObjectId }) // Now using ObjectId format
+          .find({ userId: user._id })
           .sort({ createdAt: -1 })
           .limit(5)
           .toArray()

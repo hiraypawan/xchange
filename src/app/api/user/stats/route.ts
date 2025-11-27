@@ -56,7 +56,78 @@ export async function GET(req: NextRequest) {
       console.log('📊 STATS - User found by id-as-twitterId:', user ? 'SUCCESS' : 'NOT_FOUND');
     }
 
-    // If we STILL don't have a user, there's a major issue
+    // If we STILL don't have a user, try auto-creation
+    if (!user) {
+      console.log('🔴 User not found in database - attempting auto-creation for stats');
+      
+      try {
+        const newUserData = {
+          twitterId: session.user.twitterId || session.user.id,
+          username: session.user.username || session.user.name?.replace(/\s+/g, '_').toLowerCase() || `user_${Date.now()}`,
+          displayName: session.user.name || 'User',
+          email: session.user.email || null,
+          avatar: session.user.image || null,
+          credits: 2,
+          totalEarned: 2,
+          totalSpent: 0,
+          joinedAt: new Date(),
+          lastActive: new Date(),
+          isActive: true,
+          createdVia: 'auto_creation_on_stats_api',
+          autoCreated: true
+        };
+
+        const insertResult = await db.collection('users').insertOne(newUserData);
+        console.log('✅ User auto-created for stats with ID:', insertResult.insertedId);
+
+        // Create welcome transaction
+        await db.collection('credit_transactions').insertOne({
+          userId: insertResult.insertedId,
+          type: 'bonus',
+          amount: 2,
+          balance: 2,
+          description: 'Auto-created user - welcome bonus (stats)',
+          createdAt: new Date(),
+          metadata: { 
+            reason: 'auto_user_creation_stats',
+            sessionUserId: session.user.id,
+            twitterId: session.user.twitterId 
+          }
+        });
+
+        // Set user to the newly created user
+        user = await db.collection('users').findOne({ _id: insertResult.insertedId });
+        console.log('✅ Stats API - User auto-created and retrieved');
+        
+      } catch (createError) {
+        console.error('❌ Failed to auto-create user for stats:', createError);
+        
+        // Return basic stats as fallback
+        return NextResponse.json({
+          success: true,
+          data: {
+            credits: session.user.credits || 2,
+            totalEarned: 2,
+            totalSpent: 0,
+            totalEngagements: 0,
+            completedEngagements: 0,
+            successRate: 0,
+            weeklyEarnings: 0,
+            totalTransactions: 0,
+            recentTransactions: [],
+            joinedAt: new Date(),
+            lastActive: new Date(),
+            todayEarned: 0,
+            todaySpent: 0,
+            weeklyChange: 0,
+            source: 'session_fallback',
+            warning: 'User not found and auto-creation failed, using session data'
+          }
+        });
+      }
+    }
+
+    // Final check - if user is still null after auto-creation attempt
     if (!user) {
       // Get database stats for debugging
       const totalUsers = await db.collection('users').countDocuments();
@@ -64,7 +135,7 @@ export async function GET(req: NextRequest) {
       
       return NextResponse.json({
         success: false,
-        error: 'User lookup failed with all methods',
+        error: 'User lookup and auto-creation failed',
         debug: {
           sessionUser: session.user,
           totalUsers,

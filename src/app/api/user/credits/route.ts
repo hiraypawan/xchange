@@ -58,20 +58,71 @@ export async function GET(req: NextRequest) {
     }
 
     if (!user) {
-      console.log('🔴 User not found in database');
+      console.log('🔴 User not found in database - attempting auto-creation');
       
-      // Return session credits as fallback
-      const fallbackCredits = session.user.credits || 2;
-      console.log('⚠️ Returning fallback credits:', fallbackCredits);
-      
-      return NextResponse.json({
-        success: true,
-        data: {
-          credits: fallbackCredits,
-          source: 'session_fallback',
-          warning: 'User not found in database, using session data'
-        }
-      });
+      // Try to create the user automatically using session data
+      try {
+        const newUserData = {
+          twitterId: session.user.twitterId || session.user.id,
+          username: session.user.username || session.user.name?.replace(/\s+/g, '_').toLowerCase() || `user_${Date.now()}`,
+          displayName: session.user.name || 'User',
+          email: session.user.email || null,
+          avatar: session.user.image || null,
+          credits: 2,
+          totalEarned: 2,
+          totalSpent: 0,
+          joinedAt: new Date(),
+          lastActive: new Date(),
+          isActive: true,
+          createdVia: 'auto_creation_on_credits_api',
+          autoCreated: true
+        };
+
+        const insertResult = await db.collection('users').insertOne(newUserData);
+        console.log('✅ User auto-created with ID:', insertResult.insertedId);
+
+        // Create welcome transaction
+        await db.collection('credit_transactions').insertOne({
+          userId: insertResult.insertedId,
+          type: 'bonus',
+          amount: 2,
+          balance: 2,
+          description: 'Auto-created user - welcome bonus',
+          createdAt: new Date(),
+          metadata: { 
+            reason: 'auto_user_creation',
+            sessionUserId: session.user.id,
+            twitterId: session.user.twitterId 
+          }
+        });
+
+        return NextResponse.json({
+          success: true,
+          data: {
+            credits: 2,
+            userId: insertResult.insertedId.toString(),
+            twitterId: newUserData.twitterId,
+            source: 'auto_created',
+            message: 'User auto-created successfully'
+          }
+        });
+        
+      } catch (createError) {
+        console.error('❌ Failed to auto-create user:', createError);
+        
+        // Fallback to session data
+        const fallbackCredits = session.user.credits || 2;
+        console.log('⚠️ Using session fallback credits:', fallbackCredits);
+        
+        return NextResponse.json({
+          success: true,
+          data: {
+            credits: fallbackCredits,
+            source: 'session_fallback',
+            warning: 'User not found and auto-creation failed, using session data'
+          }
+        });
+      }
     }
 
     // Ensure user has credits

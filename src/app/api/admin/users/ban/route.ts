@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
         $set: {
           isBanned: ban,
           bannedAt: ban ? new Date() : null,
-          bannedBy: ban ? 'admin' : null,
+          bannedBy: ban ? (session.user?.id || session.user?.name || 'admin') : null,
           lastModified: new Date()
         }
       }
@@ -55,8 +55,8 @@ export async function POST(request: NextRequest) {
 
     // Log admin action
     await db.collection('admin_logs').insertOne({
-      adminId: 'admin',
-      adminName: 'Admin User',
+      adminId: session.user?.id || session.user?.name || 'admin',
+      adminName: session.user?.name || 'Admin User',
       action: ban ? 'BAN_USER' : 'UNBAN_USER',
       targetUserId: userObjectId,
       details: `User ${ban ? 'banned' : 'unbanned'} by admin`,

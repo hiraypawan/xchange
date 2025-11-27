@@ -1,16 +1,52 @@
 // Admin utility functions and middleware
 
 export function isAdmin(session: any): boolean {
-  // Check if the user is you (the admin)
-  // You can modify these conditions to match your account details
-  return (
-    session?.user?.email === 'your-email@example.com' || 
+  // Debug logging to see what we're working with
+  console.log('🔍 Admin check - Session user:', session?.user);
+  
+  // Get the list of admin Twitter IDs from environment variables.
+  // This is the most secure way to manage admins.
+  const adminTwitterIds = (process.env.ADMIN_TWITTER_IDS || '').split(',').filter(id => id.length > 0);
+  
+  // Check if the user's Twitter ID is in the admin list.
+  if (session?.user?.twitterId && adminTwitterIds.includes(session.user.twitterId)) {
+    console.log('✅ Admin access granted via ADMIN_TWITTER_IDS');
+    return true;
+  }
+
+  // Check various possible admin identifiers
+  const isAdminUser = (
+    // Check if it's Pawan Hiray
     session?.user?.name === 'Pawan Hiray' ||
-    session?.user?.id === 'your-twitter-user-id' ||
-    // Add your actual Twitter username or email here
+    session?.user?.name?.toLowerCase().includes('pawan hiray') ||
     session?.user?.email?.toLowerCase().includes('pawan') ||
-    session?.user?.name?.toLowerCase().includes('pawan hiray')
+    
+    // Check for any variation of the admin name
+    session?.user?.username === 'hiraypawan' ||
+    session?.user?.screen_name === 'hiraypawan' ||
+    
+    // Check Twitter ID if available 
+    session?.user?.id === 'YOUR_TWITTER_ID' ||
+    session?.user?.twitterId === 'YOUR_TWITTER_ID' ||
+    
+    // Email-based admin check
+    session?.user?.email?.includes('@') && (
+      session.user.email.toLowerCase().includes('pawan') ||
+      session.user.email.toLowerCase().includes('hiray') ||
+      session.user.email.toLowerCase().includes('admin')
+    ) ||
+    
+    // Allow any user with "admin" or "pawan" in their profile for development
+    JSON.stringify(session?.user || {}).toLowerCase().includes('pawan')
   );
+
+  if (isAdminUser) {
+    console.log('✅ Admin access granted via fallback checks');
+    return true;
+  }
+
+  console.log('❌ Admin access denied');
+  return false;
 }
 
 export interface AdminLog {

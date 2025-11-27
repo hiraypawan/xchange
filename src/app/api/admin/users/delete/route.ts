@@ -1,26 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
+import { isAdmin } from '@/lib/admin';
 
-// Check admin session cookie
-function checkAdminSession(request: NextRequest) {
-  try {
-    const adminSessionCookie = request.cookies.get('admin_session');
-    if (!adminSessionCookie?.value) {
-      return false;
-    }
-    
-    const sessionData = JSON.parse(adminSessionCookie.value);
-    return sessionData.verified && sessionData.expires > Date.now();
-  } catch (error) {
-    return false;
-  }
-}
 
 export async function POST(request: NextRequest) {
   try {
-    // Check admin authentication using cookie-based system
-    if (!checkAdminSession(request)) {
+    const session = await getServerSession(authOptions);
+    
+    if (!session || !isAdmin(session)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -48,11 +38,11 @@ export async function POST(request: NextRequest) {
 
     // Log admin action before deletion
     await db.collection('admin_logs').insertOne({
-      adminId: 'admin',
-      adminName: 'Admin User',
+      adminId: session.user?.id || session.user?.name || 'admin',
+      adminName: session.user?.name || 'Admin User',
       action: 'DELETE_USER',
       targetUserId: userObjectId,
-      details: `User account deleted by admin`,
+      details: `User account deleted by admin ${session.user?.name || 'Unknown'}`,
       metadata: {
         deletedUserName: userToDelete.name,
         deletedUserEmail: userToDelete.email,
@@ -79,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     await Promise.all(deleteOperations);
 
-    console.log(`Admin deleted user ${userId}`);
+    console.log(`Admin ${session.user?.name || 'Unknown'} deleted user ${userId}`);
 
     return NextResponse.json({ 
       success: true, 

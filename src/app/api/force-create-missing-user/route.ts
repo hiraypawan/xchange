@@ -8,8 +8,16 @@ import { ObjectId } from 'mongodb';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// POST /api/force-create-missing-user - Force create user if they don't exist in database
+// GET/POST /api/force-create-missing-user - Force create user if they don't exist in database
+export async function GET(req: NextRequest) {
+  return handleForceCreateUser(req);
+}
+
 export async function POST(req: NextRequest) {
+  return handleForceCreateUser(req);
+}
+
+async function handleForceCreateUser(req: NextRequest) {
   try {
     console.log('🚨 FORCE CREATE MISSING USER - Starting...');
     

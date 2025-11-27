@@ -4,6 +4,10 @@ import { authOptions } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
+// Force dynamic rendering and disable caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // Verify user has access to the requested user data
 async function verifyAccess(requestedUserId: string) {
   const session = await getServerSession(authOptions);

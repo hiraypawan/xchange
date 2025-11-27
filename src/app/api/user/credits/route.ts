@@ -4,6 +4,10 @@ import { authOptions } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
+// Force dynamic rendering and disable caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // GET /api/user/credits - Get user's current credit balance
 export async function GET(req: NextRequest) {
   try {

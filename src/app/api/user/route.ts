@@ -4,6 +4,10 @@ import { authOptions } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import { updateProfileSchema } from '@/lib/validations';
 import { User } from '@/types';
+
+// Force dynamic rendering and disable caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 import { ObjectId } from 'mongodb';
 
 // GET /api/user - Get current user profile

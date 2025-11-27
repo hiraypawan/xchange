@@ -248,19 +248,86 @@ export const authOptions: NextAuthOptions = {
             return true;
           }
         } catch (error) {
-          console.error('❌ SIGN IN ERROR:', error);
-          // TEMPORARY DEBUGGING FIX: Allow sign-in even if DB fails to get past AccessDenied.
-          // This creates a session for a user who may not be in the database.
-          console.warn('⚠️ ALLOWING SIGN-IN DESPITE DATABASE ERROR FOR DEBUGGING PURPOSES.');
-
-          // Create a fallback user object for the JWT token
-          user.id = twitterProfile.id;
-          (user as any).twitterId = twitterProfile.id;
-          (user as any).username = twitterProfile.username || 'fallback_user';
-          (user as any).credits = 0;
-
-          // Allow sign-in to proceed
-          return true;
+          console.error('❌ CRITICAL SIGN IN ERROR:', error);
+          console.error('❌ Error details:', {
+            name: error instanceof Error ? error.name : 'Unknown',
+            message: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : 'No stack trace',
+            twitterProfile,
+            userInfo: user
+          });
+          
+          // Instead of allowing fallback, let's retry the user creation once
+          console.warn('🔄 RETRYING USER CREATION AFTER ERROR...');
+          
+          try {
+            // Simple retry with minimal data
+            const { db } = await connectToDatabase();
+            
+            const retryUser = {
+              twitterId: twitterProfile.id,
+              username: twitterProfile.username || `user_${Date.now()}`,
+              displayName: twitterProfile.name || user.name || 'User',
+              email: user.email || null,
+              avatar: twitterProfile.profile_image_url || user.image || null,
+              credits: 2,
+              totalEarned: 2,
+              totalSpent: 0,
+              joinedAt: new Date(),
+              lastActive: new Date(),
+              isActive: true,
+              createdVia: 'twitter_auth_retry',
+              uniqueKey: `twitter_${twitterProfile.id}`
+            };
+            
+            const retryResult = await db.collection('users').insertOne(retryUser);
+            console.log('✅ RETRY USER CREATION SUCCESSFUL:', retryResult.insertedId);
+            
+            // Create credit transaction
+            await db.collection('credit_transactions').insertOne({
+              userId: retryResult.insertedId,
+              type: 'bonus',
+              amount: 2,
+              balance: 2,
+              description: 'Welcome bonus - 2 starting credits (retry)',
+              createdAt: new Date(),
+              metadata: { 
+                reason: 'new_user_signup_retry',
+                twitterId: twitterProfile.id,
+                originalError: error instanceof Error ? error.message : 'Unknown'
+              }
+            });
+            
+            // Set user data for successful retry
+            user.id = retryResult.insertedId.toString();
+            user.name = retryUser.displayName;
+            user.email = retryUser.email || user.email;
+            user.image = retryUser.avatar || user.image;
+            
+            (user as any).twitterId = retryUser.twitterId;
+            (user as any).username = retryUser.username;
+            (user as any).credits = retryUser.credits;
+            
+            console.log('✅ RETRY SIGN IN SUCCESSFUL:', {
+              userId: user.id,
+              twitterId: retryUser.twitterId,
+              credits: retryUser.credits
+            });
+            
+            return true;
+            
+          } catch (retryError) {
+            console.error('❌ RETRY FAILED:', retryError);
+            
+            // Only now use fallback if retry also fails
+            console.warn('⚠️ USING FALLBACK AFTER RETRY FAILURE');
+            user.id = twitterProfile.id;
+            (user as any).twitterId = twitterProfile.id;
+            (user as any).username = twitterProfile.username || 'fallback_user';
+            (user as any).credits = 0;
+            
+            return true;
+          }
         }
       }
       

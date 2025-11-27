@@ -86,8 +86,8 @@ async function createOrUpdateUser(twitterProfile: TwitterProfile, userInfo: any)
         displayName: twitterProfile.name || userInfo.name || 'User',
         email: userInfo.email || null,
         avatar: twitterProfile.profile_image_url || userInfo.image,
-        credits: 100, // REQUIREMENT: Start with 100 credits
-        totalEarned: 100,
+        credits: 2, // START WITH 2 CREDITS
+        totalEarned: 2,
         totalSpent: 0,
         joinedAt: new Date(),
         lastActive: new Date(),
@@ -115,10 +115,10 @@ async function createOrUpdateUser(twitterProfile: TwitterProfile, userInfo: any)
 
       // Create starting credits transaction
       await db.collection('credit_transactions').insertOne({
-        userId: insertResult.insertedId, // FIX: Store as ObjectId
+        userId: insertResult.insertedId, // Store as ObjectId
         type: 'bonus',
-        amount: 100,
-        balance: 100,
+        amount: 2,
+        balance: 2,
         description: 'Welcome bonus - 2 starting credits',
         createdAt: new Date(),
         metadata: { 
@@ -515,7 +515,7 @@ export async function updateUserCredits(
     
     // Create transaction record
     await db.collection('credit_transactions').insertOne({
-      userId: objectId.toString(),
+      userId: objectId,
       type,
       amount,
       balance: newBalance,

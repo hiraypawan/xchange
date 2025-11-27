@@ -132,6 +132,9 @@ async function createOrUpdateUser(twitterProfile: TwitterProfile, userInfo: any)
   }
 }
 
+import { connectToDatabase } from './mongodb';
+import TwitterProvider from 'next-auth/providers/twitter';
+
 export const authOptions: NextAuthOptions = {
   providers: [
     TwitterProvider({
@@ -202,28 +205,56 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
 
-    async jwt({ token, user }) {
-      // Store user data in token
-      if (user) {
-        token.id = user.id;
-        token.twitterId = (user as any).twitterId;
-        token.username = (user as any).username;
-        token.credits = (user as any).credits;
+    async jwt({ token, user, account, profile }) {
+      try {
+        // On sign in
+        if (account && profile) {
+          const { db } = await connectToDatabase();
+          
+          // Get user from database using Twitter ID
+          const dbUser = await db.collection('users').findOne({
+            twitterId: account.providerAccountId
+          });
+
+          if (dbUser) {
+            token.id = dbUser._id.toString();
+            token.dbId = dbUser._id.toString(); // Store MongoDB _id
+            token.twitterId = dbUser.twitterId;
+            token.username = dbUser.username;
+            token.credits = dbUser.credits;
+            token.displayName = dbUser.displayName;
+          }
+        }
+        return token;
+      } catch (error) {
+        console.error('🔴 Error in jwt callback:', error);
+        return token;
       }
-      return token;
     },
 
     async session({ session, token }) {
-      // Transfer token data to session
-      if (token) {
-        session.user.id = token.id as string;
-        session.user.twitterId = token.twitterId as string;
-        session.user.username = token.username as string;
-        session.user.credits = token.credits as number;
-      }
-      
-      console.log('📋 SESSION CREATED:', {
-        userId: session.user.id,
+      try {
+        if (token) {
+          // Get fresh user data from database
+          const { db } = await connectToDatabase();
+          const freshUser = await db.collection('users').findOne({
+            _id: new ObjectId(token.dbId as string)
+          });
+
+          if (freshUser) {
+            session.user.id = freshUser._id.toString();
+            session.user.twitterId = freshUser.twitterId;
+            session.user.username = freshUser.username;
+            session.user.credits = freshUser.credits;
+            session.user.name = freshUser.displayName;
+            session.user.image = freshUser.avatar;
+          } else {
+            console.error('🔴 User not found in database:', token.dbId);
+          }
+        }
+        
+        console.log('📋 SESSION CREATED:', {
+          userId: session.user.id,
         twitterId: session.user.twitterId,
         credits: session.user.credits
       });

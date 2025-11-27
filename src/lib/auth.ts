@@ -291,16 +291,100 @@ export const authOptions: NextAuthOptions = {
             timestamp: new Date().toISOString()
           });
           
-          // Allow sign-in with fallback data to prevent AccessDenied error
-          // The user will be auto-created later by the credits/stats APIs
-          console.log('⚠️ ALLOWING SIGN-IN WITH FALLBACK DATA due to database error');
-          (user as any).twitterId = twitterProfile.id;
-          (user as any).username = twitterProfile.username || `user_${Date.now()}`;
-          (user as any).credits = 2; // Default credits
-          (user as any).displayName = twitterProfile.name || user.name || 'User';
-          user.id = twitterProfile.id; // Use Twitter ID as fallback ID
-          
-          return true; // Allow sign-in, user will be auto-created on dashboard load
+          // CRITICAL FIX: Try to create user with simplified method to ensure database creation
+          console.log('🔄 ATTEMPTING EMERGENCY USER CREATION...');
+          try {
+            const { db } = await connectToDatabase();
+            
+            // Check if user exists first
+            const existingUser = await db.collection('users').findOne({ twitterId: twitterProfile.id });
+            if (existingUser) {
+              console.log('✅ User already exists during emergency check:', existingUser._id);
+              user.id = existingUser._id.toString();
+              (user as any).twitterId = existingUser.twitterId;
+              (user as any).username = existingUser.username;
+              (user as any).credits = existingUser.credits;
+              return true;
+            }
+            
+            // Emergency user creation using simple insertOne
+            const emergencyUser = {
+              twitterId: twitterProfile.id,
+              username: twitterProfile.username || `user_${Date.now()}`,
+              displayName: twitterProfile.name || user.name || 'User',
+              email: user.email || null,
+              avatar: twitterProfile.profile_image_url || user.image || null,
+              credits: 2,
+              totalEarned: 2,
+              totalSpent: 0,
+              joinedAt: new Date(),
+              lastActive: new Date(),
+              isActive: true,
+              createdVia: 'emergency_creation_during_signin',
+              stats: {
+                totalEngagements: 0,
+                successRate: 0,
+                averageEarningsPerDay: 0,
+                streakDays: 0,
+                rank: 0,
+              },
+              settings: {
+                autoEngage: false,
+                maxEngagementsPerDay: 50,
+                emailNotifications: true,
+                pushNotifications: true,
+                privacy: 'public',
+              }
+            };
+            
+            const emergencyResult = await db.collection('users').insertOne(emergencyUser);
+            console.log('✅ EMERGENCY USER CREATION SUCCESSFUL:', emergencyResult.insertedId);
+            
+            // Create credit transaction
+            await db.collection('credit_transactions').insertOne({
+              userId: emergencyResult.insertedId,
+              type: 'bonus',
+              amount: 2,
+              balance: 2,
+              description: 'Emergency creation - welcome bonus',
+              createdAt: new Date(),
+              metadata: { 
+                reason: 'emergency_user_creation',
+                twitterId: twitterProfile.id,
+                originalError: error instanceof Error ? error.message : 'Unknown'
+              }
+            });
+            
+            // Set user data for successful emergency creation
+            user.id = emergencyResult.insertedId.toString();
+            user.name = emergencyUser.displayName;
+            user.email = emergencyUser.email;
+            user.image = emergencyUser.avatar;
+            (user as any).twitterId = emergencyUser.twitterId;
+            (user as any).username = emergencyUser.username;
+            (user as any).credits = emergencyUser.credits;
+            
+            console.log('✅ SIGN IN SUCCESSFUL with emergency user creation:', {
+              userId: user.id,
+              twitterId: emergencyUser.twitterId,
+              credits: emergencyUser.credits
+            });
+            
+            return true;
+            
+          } catch (emergencyError) {
+            console.error('❌ EMERGENCY USER CREATION ALSO FAILED:', emergencyError);
+            
+            // Last resort: Allow sign-in but log critical error
+            console.log('⚠️ CRITICAL: Both primary and emergency user creation failed - allowing sign-in with session data');
+            (user as any).twitterId = twitterProfile.id;
+            (user as any).username = twitterProfile.username || `user_${Date.now()}`;
+            (user as any).credits = 2; // Default credits
+            (user as any).displayName = twitterProfile.name || user.name || 'User';
+            user.id = twitterProfile.id; // Use Twitter ID as fallback ID
+            
+            return true; // Allow sign-in, user will be auto-created later
+          }
         }
       }
       

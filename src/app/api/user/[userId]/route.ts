@@ -13,10 +13,12 @@ async function verifyAccess(requestedUserId: string) {
   return session.user.id === requestedUserId;
 }
 
-export async function GET(request: NextRequest, { params }: { params: { userId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   try {
+    const { userId } = await params;
+    
     // Verify access
-    const hasAccess = await verifyAccess(params.userId);
+    const hasAccess = await verifyAccess(userId);
     if (!hasAccess) {
       return NextResponse.json({ error: 'Unauthorized access' }, { status: 403 });
     }
@@ -25,7 +27,7 @@ export async function GET(request: NextRequest, { params }: { params: { userId: 
     
     // Get user data
     const user = await db.collection('users').findOne({
-      _id: new ObjectId(params.userId)
+      _id: new ObjectId(userId)
     });
 
     if (!user) {
@@ -54,10 +56,12 @@ export async function GET(request: NextRequest, { params }: { params: { userId: 
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { userId: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   try {
+    const { userId } = await params;
+    
     // Verify access
-    const hasAccess = await verifyAccess(params.userId);
+    const hasAccess = await verifyAccess(userId);
     if (!hasAccess) {
       return NextResponse.json({ error: 'Unauthorized access' }, { status: 403 });
     }
@@ -81,7 +85,7 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
 
     // Update user
     const result = await db.collection('users').updateOne(
-      { _id: new ObjectId(params.userId) },
+      { _id: new ObjectId(userId) },
       { $set: safeUpdateData }
     );
 

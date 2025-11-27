@@ -132,9 +132,6 @@ async function createOrUpdateUser(twitterProfile: TwitterProfile, userInfo: any)
   }
 }
 
-import { connectToDatabase } from './mongodb';
-import TwitterProvider from 'next-auth/providers/twitter';
-
 export const authOptions: NextAuthOptions = {
   providers: [
     TwitterProvider({
@@ -255,11 +252,15 @@ export const authOptions: NextAuthOptions = {
         
         console.log('📋 SESSION CREATED:', {
           userId: session.user.id,
-        twitterId: session.user.twitterId,
-        credits: session.user.credits
-      });
+          twitterId: session.user.twitterId,
+          credits: session.user.credits
+        });
       
       return session;
+      } catch (error) {
+        console.error('🔴 Error in session callback:', error);
+        return session;
+      }
     },
   },
   events: {

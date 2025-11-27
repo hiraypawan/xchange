@@ -1,19 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminMiddleware } from '../middleware';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { isAdmin } from '@/lib/admin';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 // Get all users
 export async function GET(request: NextRequest) {
   try {
-    // Verify admin access
-    const adminCheckResult = await adminMiddleware(request);
-    if (adminCheckResult) {
-      return adminCheckResult;
+    // Verify admin access using NextAuth session
+    const session = await getServerSession(authOptions);
+    
+    if (!session || !isAdmin(session)) {
+      console.log('❌ Admin access denied:', { 
+        hasSession: !!session, 
+        isAdminResult: session ? isAdmin(session) : false,
+        sessionUser: session?.user 
+      });
+      return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 401 });
     }
+    
+    console.log('✅ Admin access granted to:', session.user?.name || session.user?.id);
 
     console.log('🔍 Fetching all users...');
     const { db } = await connectToDatabase();
+
+    // Debug: Check total user count and recent users
+    const totalUsers = await db.collection('users').countDocuments();
+    const recentUsers = await db.collection('users')
+      .find({})
+      .sort({ joinedAt: -1 })
+      .limit(5)
+      .toArray();
+      
+    console.log('📊 Database stats before filtering:', {
+      totalUsers,
+      recentUserSample: recentUsers.map(u => ({
+        _id: u._id,
+        twitterId: u.twitterId,
+        username: u.username,
+        displayName: u.displayName,
+        createdVia: u.createdVia,
+        joinedAt: u.joinedAt,
+        autoCreated: u.autoCreated
+      }))
+    });
 
     // Get all users with proper fields
     const users = await db.collection('users')
@@ -33,13 +64,14 @@ export async function GET(request: NextRequest) {
           isBanned: 1,
           stats: 1,
           twitterId: 1,
-          createdVia: 1
+          createdVia: 1,
+          autoCreated: 1
         }
       })
       .sort({ joinedAt: -1 })
       .toArray();
 
-    console.log(`✅ Found ${users.length} users`);
+    console.log(`✅ Found ${users.length} users after projection`);
 
     // Map users to the expected format
     const mappedUsers = users.map(user => ({
@@ -54,10 +86,21 @@ export async function GET(request: NextRequest) {
       lastActive: user.lastActive || new Date().toISOString(),
       isBanned: user.isBanned || false,
       engagementCount: user.stats?.totalEngagements || 0,
-      status: user.isActive ? 'active' : 'inactive'
+      status: user.isActive ? 'active' : 'inactive',
+      // Add debugging fields
+      twitterId: user.twitterId,
+      createdVia: user.createdVia,
+      autoCreated: user.autoCreated
     }));
 
-    console.log('📊 First user sample:', mappedUsers[0]);
+    console.log('📊 Admin users API response:', {
+      totalMappedUsers: mappedUsers.length,
+      firstUserSample: mappedUsers[0],
+      autoCreatedUsers: mappedUsers.filter(u => u.autoCreated).length,
+      forceCreatedUsers: mappedUsers.filter(u => u.createdVia?.includes('force')).length,
+      apiCreatedUsers: mappedUsers.filter(u => u.createdVia?.includes('auto_creation')).length
+    });
+    
     return NextResponse.json(mappedUsers);
   } catch (error) {
     console.error('❌ Error fetching users:', error);
@@ -71,10 +114,12 @@ export async function GET(request: NextRequest) {
 // Update user (ban/unban, adjust credits)
 export async function PUT(request: NextRequest) {
   try {
-    // Verify admin access
-    const adminCheckResult = await adminMiddleware(request);
-    if (adminCheckResult) {
-      return adminCheckResult;
+    // Verify admin access using NextAuth session
+    const session = await getServerSession(authOptions);
+    
+    if (!session || !isAdmin(session)) {
+      console.log('❌ Admin PUT access denied');
+      return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 401 });
     }
 
     const { userId, action, data } = await request.json();

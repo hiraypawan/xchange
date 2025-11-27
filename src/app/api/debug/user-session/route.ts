@@ -29,8 +29,9 @@ export async function GET(req: NextRequest) {
         connected: false,
         userFound: false,
         userSearchResults: [] as any[],
-        totalUsers: 0
-      }
+        totalUsers: 0,
+        sampleUsers: [] as any[]
+      } as any
     };
 
     if (!session?.user) {

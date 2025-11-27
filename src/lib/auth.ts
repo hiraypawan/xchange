@@ -249,7 +249,7 @@ export const authOptions: NextAuthOptions = {
         }
         
         // Always ensure token has required fields
-        if (!token.twitterId && token.id) {
+        if (!token.twitterId && token.id && typeof token.id === 'string') {
           token.twitterId = token.id;
         }
         
@@ -272,7 +272,7 @@ export const authOptions: NextAuthOptions = {
           const { db } = await connectToDatabase();
           
           // Ensure token.dbId is a valid ObjectId
-          if (ObjectId.isValid(token.dbId)) {
+          if (token.dbId && typeof token.dbId === 'string' && ObjectId.isValid(token.dbId)) {
             const freshUser = await db.collection('users').findOne({
               _id: new ObjectId(token.dbId as string)
             });
@@ -336,10 +336,10 @@ export const authOptions: NextAuthOptions = {
         }
         
         // Ensure session always has required fields
-        if (!session.user.id && token?.id) {
+        if (!session.user.id && token?.id && typeof token.id === 'string') {
           session.user.id = token.id;
         }
-        if (!session.user.twitterId && token?.twitterId) {
+        if (!session.user.twitterId && token?.twitterId && typeof token.twitterId === 'string') {
           session.user.twitterId = token.twitterId;
         }
         if (!session.user.credits) {
@@ -350,10 +350,10 @@ export const authOptions: NextAuthOptions = {
       } catch (error) {
         console.error('🔴 Error in session callback:', error);
         // Return session with minimum required data to prevent complete failure
-        if (token?.id) {
+        if (token?.id && typeof token.id === 'string') {
           session.user.id = token.id;
         }
-        if (token?.twitterId) {
+        if (token?.twitterId && typeof token.twitterId === 'string') {
           session.user.twitterId = token.twitterId;
         }
         if (!session.user.credits) {

@@ -146,22 +146,67 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+    if (!confirm('Are you sure you want to delete this user? This action CANNOT be undone and will remove all user data including credits and transaction history.')) {
+      return;
+    }
+    
+    // Double confirmation for safety
+    const userConfirmedAgain = prompt('Type "DELETE" to confirm permanent user deletion:');
+    if (userConfirmedAgain !== 'DELETE') {
+      alert('Deletion cancelled. User data is safe.');
       return;
     }
 
     try {
+      setLoading(true);
       const response = await fetch('/api/admin/users/delete', {
-        method: 'DELETE',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })
       });
 
-      if (response.ok) {
-        setUsers(users.filter(user => user.id !== userId));
+      const data = await response.json();
+      
+      if (data.success) {
+        alert('User deleted successfully!');
+        loadAdminData(); // Reload data to reflect changes
+      } else {
+        alert(`Failed to delete user: ${data.error}`);
       }
     } catch (error) {
       console.error('Error deleting user:', error);
+      alert('Failed to delete user. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  const handleCleanupDuplicates = async () => {
+    if (!confirm('Are you sure you want to clean up duplicate users? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const response = await fetch('/api/admin/cleanup-duplicates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`Cleanup successful! Removed ${data.duplicatesRemoved} duplicate users.`);
+        loadAdminData(); // Reload data
+      } else {
+        alert(`Cleanup failed: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Cleanup failed:', error);
+      alert('Cleanup failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 

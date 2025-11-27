@@ -80,7 +80,8 @@ async function createOrUpdateUser(twitterProfile: TwitterProfile, userInfo: any)
         console.log('🔄 Username conflict resolved, using:', username);
       }
       
-      const newUser = {
+      // Use atomic upsert operation to prevent race conditions completely
+      const newUserDocument = {
         twitterId: twitterProfile.id, // This is the unique identifier
         username: username,
         displayName: twitterProfile.name || userInfo.name || 'User',
@@ -106,16 +107,42 @@ async function createOrUpdateUser(twitterProfile: TwitterProfile, userInfo: any)
           streakDays: 0,
           rank: 0,
         },
-        createdVia: 'twitter_auth',
-        uniqueKey: `twitter_${twitterProfile.id}` // Additional unique identifier
+        createdVia: 'twitter_auth_atomic_upsert',
+        uniqueKey: `twitter_${twitterProfile.id}`, // Additional unique identifier
+        createdAt: new Date(),
+        signInAttempts: 1
       };
 
-      const insertResult = await db.collection('users').insertOne(newUser);
-      console.log('✅ NEW USER CREATED:', insertResult.insertedId);
+      // Use atomic upsert to prevent race conditions and duplicate key errors gracefully.
+      // This will insert the document only if no user with the same twitterId exists.
+      console.log('🔧 Attempting atomic upsert for user creation...');
+      const upsertResult = await db.collection('users').updateOne(
+        { twitterId: twitterProfile.id },
+        { 
+          $setOnInsert: newUserDocument,
+          $inc: { signInAttempts: 1 },
+          $set: { lastSignIn: new Date() }
+        },
+        { upsert: true }
+      );
+
+      let insertedId;
+      if (upsertResult.upsertedId) {
+        insertedId = upsertResult.upsertedId;
+        console.log('✅ NEW USER CREATED via atomic upsert:', insertedId);
+      } else {
+        // This case handles when user already exists - get existing user ID
+        const existingUser = await db.collection('users').findOne({ twitterId: twitterProfile.id });
+        if (!existingUser) {
+          throw new Error('Failed to find user after upsert operation');
+        }
+        insertedId = existingUser._id;
+        console.log('✅ Existing user found after upsert, ID:', insertedId);
+      }
 
       // Create starting credits transaction
       await db.collection('credit_transactions').insertOne({
-        userId: insertResult.insertedId, // Store as ObjectId
+        userId: insertedId, // Store as ObjectId
         type: 'bonus',
         amount: 2,
         balance: 2,
@@ -127,7 +154,7 @@ async function createOrUpdateUser(twitterProfile: TwitterProfile, userInfo: any)
         }
       });
 
-      const createdUser = await db.collection('users').findOne({ _id: insertResult.insertedId });
+      const createdUser = await db.collection('users').findOne({ _id: insertedId });
       console.log('✅ USER VERIFICATION:', {
         id: createdUser?._id,
         twitterId: createdUser?.twitterId,
@@ -319,14 +346,9 @@ export const authOptions: NextAuthOptions = {
           } catch (retryError) {
             console.error('❌ RETRY FAILED:', retryError);
             
-            // Only now use fallback if retry also fails
-            console.warn('⚠️ USING FALLBACK AFTER RETRY FAILURE');
-            user.id = twitterProfile.id;
-            (user as any).twitterId = twitterProfile.id;
-            (user as any).username = twitterProfile.username || 'fallback_user';
-            (user as any).credits = 0;
-            
-            return true;
+            // CRITICAL FIX: If all attempts to create a user fail, block the sign-in.
+            // This prevents the creation of "ghost" users.
+            return false;
           }
         }
       }

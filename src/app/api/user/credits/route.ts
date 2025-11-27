@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
         }
         
         // Check one more time if user exists (race condition prevention)
-        const queryConditions = [
+        const queryConditions: any[] = [
           { twitterId: twitterId }
         ];
         

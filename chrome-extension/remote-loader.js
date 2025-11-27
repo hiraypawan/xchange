@@ -29,11 +29,11 @@ class RemoteLoader {
     if (isDevelopment) {
       // Try localhost first for development
       console.log('🔧 RemoteLoader: Using local development server');
-      return 'http://localhost:3001/api/extension';
+      return 'http://localhost:3001/api';
     } else {
       // Use production URL
       console.log('🌐 RemoteLoader: Using production server');
-      return 'https://xchangee.vercel.app/api/extension';
+      return 'https://xchangee.vercel.app/api';
     }
   }
 
@@ -42,9 +42,9 @@ class RemoteLoader {
    */
   async testConnectivity() {
     const urls = [
-      'http://localhost:3001/api/extension/version',
-      'http://localhost:3000/api/extension/version',
-      'https://xchangee.vercel.app/api/extension/version'
+      'http://localhost:3001/api/extension?action=version',
+      'http://localhost:3000/api/extension?action=version',
+      'https://xchangee.vercel.app/api/extension?action=version'
     ];
     
     for (const url of urls) {
@@ -838,11 +838,10 @@ class RemoteLoader {
       }
 
       // Try multiple endpoints that might exist on your server
+      // Fixed to use correct API structure with query parameters
       const endpoints = [
-        `${this.baseUrl}/health`,
-        `${this.baseUrl}/extension/version`, 
-        `${this.baseUrl}/user/stats`,
-        `${this.baseUrl}/status`
+        `${this.baseUrl}/extension?action=version`,
+        `${this.baseUrl}/extension?action=health`  // Fallback if health action exists
       ];
 
       let serverVersion = null;
@@ -859,7 +858,7 @@ class RemoteLoader {
           
           try {
             response = await fetch(endpoint, {
-              method: 'HEAD',
+              method: 'GET', // Changed to GET since we're using query parameters
               headers: {
                 'Cache-Control': 'no-cache'
               },

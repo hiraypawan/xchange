@@ -195,13 +195,33 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account, profile }) {
       console.log('🔐 SIGN IN STARTED:', {
         provider: account?.provider,
+        providerAccountId: account?.providerAccountId,
         userId: user.id,
         userName: user.name,
+        profileId: (profile as any)?.id,
         timestamp: new Date().toISOString()
       });
 
-      if (account?.provider === 'twitter' && profile) {
+      if (account?.provider === 'twitter' && profile && account.providerAccountId) {
         const twitterProfile = profile as TwitterProfile;
+        
+        // CRITICAL FIX: Ensure Twitter ID is properly captured
+        if (!twitterProfile.id && account.providerAccountId) {
+          twitterProfile.id = account.providerAccountId;
+        }
+        
+        console.log('🔍 TWITTER PROFILE VALIDATION:', {
+          profileId: twitterProfile.id,
+          accountId: account.providerAccountId,
+          username: twitterProfile.username,
+          name: twitterProfile.name
+        });
+        
+        // Validate we have the essential data
+        if (!twitterProfile.id) {
+          console.error('🚨 CRITICAL ERROR: No Twitter ID found in profile or account');
+          return false; // Reject sign-in if we can't identify the user
+        }
         
         try {
           // Create or update user in database

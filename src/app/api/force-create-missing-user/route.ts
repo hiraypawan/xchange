@@ -76,7 +76,7 @@ async function handleForceCreateUser(req: NextRequest) {
       twitterId: session.user.twitterId || session.user.id || `fallback_${Date.now()}`,
       username: session.user.email?.split('@')[0] || `user_${Date.now()}`,
       displayName: session.user.name || 'User',
-      email: session.user.email || null,
+      email: session.user.email || `noemail_${Date.now()}@temp.local`, // Avoid null email conflict
       avatar: session.user.image || null,
       credits: 2,
       totalEarned: 2,

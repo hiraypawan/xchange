@@ -49,14 +49,27 @@ export async function GET(req: NextRequest) {
     }
 
     if (!user) {
+      console.log('🔴 User not found with identifiers:', {
+        sessionUserId: session.user.id,
+        sessionTwitterId: session.user.twitterId,
+        sessionEmail: session.user.email
+      });
       return NextResponse.json(
-        { error: 'User not found' },
+        { error: 'User not found', debug: 'User lookup failed with all identifiers' },
         { status: 404 }
       );
     }
 
-    // Remove sensitive data
-    const { _id, ...userData } = user;
+    console.log('✅ User found:', {
+      id: user._id.toString(),
+      twitterId: user.twitterId,
+      credits: user.credits
+    });
+
+    // Include ID but remove other sensitive data
+    const { ...userData } = user;
+    userData.id = user._id.toString(); // Ensure ID is included
+    userData.credits = userData.credits || 2; // Ensure credits is never null/undefined
     
     return NextResponse.json({
       success: true,

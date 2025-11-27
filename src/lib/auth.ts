@@ -70,9 +70,19 @@ async function createOrUpdateUser(twitterProfile: TwitterProfile, userInfo: any)
       // Create new user
       console.log('🆕 CREATING NEW USER...');
       
+      // Generate unique username
+      let username = twitterProfile.username || twitterProfile.name?.replace(/\s+/g, '_').toLowerCase() || `user_${Date.now()}`;
+      
+      // Ensure username is unique
+      const existingUserWithUsername = await db.collection('users').findOne({ username });
+      if (existingUserWithUsername) {
+        username = `${username}_${Date.now()}`;
+        console.log('🔄 Username conflict resolved, using:', username);
+      }
+      
       const newUser = {
-        twitterId: twitterProfile.id,
-        username: twitterProfile.username || twitterProfile.name?.replace(/\s+/g, '_').toLowerCase() || `user_${Date.now()}`,
+        twitterId: twitterProfile.id, // This is the unique identifier
+        username: username,
         displayName: twitterProfile.name || userInfo.name || 'User',
         email: userInfo.email || null,
         avatar: twitterProfile.profile_image_url || userInfo.image,
@@ -96,7 +106,8 @@ async function createOrUpdateUser(twitterProfile: TwitterProfile, userInfo: any)
           streakDays: 0,
           rank: 0,
         },
-        createdVia: 'twitter_auth'
+        createdVia: 'twitter_auth',
+        uniqueKey: `twitter_${twitterProfile.id}` // Additional unique identifier
       };
 
       const insertResult = await db.collection('users').insertOne(newUser);
@@ -208,6 +219,8 @@ export const authOptions: NextAuthOptions = {
         if (account && profile) {
           const { db } = await connectToDatabase();
           
+          console.log('🔐 JWT CALLBACK - Processing sign in for:', account.providerAccountId);
+          
           // Get user from database using Twitter ID
           const dbUser = await db.collection('users').findOne({
             twitterId: account.providerAccountId
@@ -218,47 +231,134 @@ export const authOptions: NextAuthOptions = {
             token.dbId = dbUser._id.toString(); // Store MongoDB _id
             token.twitterId = dbUser.twitterId;
             token.username = dbUser.username;
-            token.credits = dbUser.credits;
+            token.credits = dbUser.credits || 2;
             token.displayName = dbUser.displayName;
+            
+            console.log('✅ JWT TOKEN CREATED for existing user:', {
+              id: token.id,
+              twitterId: token.twitterId,
+              credits: token.credits
+            });
+          } else {
+            // User doesn't exist in database - this should be handled by signIn callback
+            console.log('⚠️ User not found in database during JWT callback');
+            token.twitterId = account.providerAccountId;
+            token.id = account.providerAccountId; // Use twitterId as fallback
+            token.credits = 2; // Default credits
           }
         }
+        
+        // Always ensure token has required fields
+        if (!token.twitterId && token.id) {
+          token.twitterId = token.id;
+        }
+        
         return token;
       } catch (error) {
         console.error('🔴 Error in jwt callback:', error);
+        // Ensure token has minimum required data
+        if (!token.twitterId && account?.providerAccountId) {
+          token.twitterId = account.providerAccountId;
+          token.id = account.providerAccountId;
+        }
         return token;
       }
     },
 
     async session({ session, token }) {
       try {
-        if (token) {
+        if (token?.dbId) {
           // Get fresh user data from database
           const { db } = await connectToDatabase();
-          const freshUser = await db.collection('users').findOne({
-            _id: new ObjectId(token.dbId as string)
-          });
+          
+          // Ensure token.dbId is a valid ObjectId
+          if (ObjectId.isValid(token.dbId)) {
+            const freshUser = await db.collection('users').findOne({
+              _id: new ObjectId(token.dbId as string)
+            });
 
-          if (freshUser) {
-            session.user.id = freshUser._id.toString();
-            session.user.twitterId = freshUser.twitterId;
-            session.user.username = freshUser.username;
-            session.user.credits = freshUser.credits;
-            session.user.name = freshUser.displayName;
-            session.user.image = freshUser.avatar;
+            if (freshUser) {
+              session.user.id = freshUser._id.toString();
+              session.user.twitterId = freshUser.twitterId;
+              session.user.username = freshUser.username;
+              session.user.credits = freshUser.credits || 2; // Ensure minimum credits
+              session.user.name = freshUser.displayName;
+              session.user.image = freshUser.avatar;
+              
+              console.log('✅ SESSION REFRESHED for user:', {
+                id: session.user.id,
+                twitterId: session.user.twitterId,
+                credits: session.user.credits
+              });
+            } else {
+              console.error('🔴 User not found in database:', token.dbId);
+              // Try to find by twitterId as fallback
+              if (token.twitterId) {
+                const fallbackUser = await db.collection('users').findOne({
+                  twitterId: token.twitterId
+                });
+                
+                if (fallbackUser) {
+                  session.user.id = fallbackUser._id.toString();
+                  session.user.twitterId = fallbackUser.twitterId;
+                  session.user.username = fallbackUser.username;
+                  session.user.credits = fallbackUser.credits || 2;
+                  session.user.name = fallbackUser.displayName;
+                  session.user.image = fallbackUser.avatar;
+                  
+                  // Update token with correct dbId for future requests
+                  token.dbId = fallbackUser._id.toString();
+                  
+                  console.log('✅ FALLBACK SESSION for user:', session.user.id);
+                }
+              }
+            }
           } else {
-            console.error('🔴 User not found in database:', token.dbId);
+            console.error('🔴 Invalid ObjectId in token.dbId:', token.dbId);
+          }
+        } else if (token?.twitterId) {
+          // Fallback: find user by twitterId if dbId is missing
+          const { db } = await connectToDatabase();
+          const user = await db.collection('users').findOne({
+            twitterId: token.twitterId
+          });
+          
+          if (user) {
+            session.user.id = user._id.toString();
+            session.user.twitterId = user.twitterId;
+            session.user.username = user.username;
+            session.user.credits = user.credits || 2;
+            session.user.name = user.displayName;
+            session.user.image = user.avatar;
+            
+            console.log('✅ REBUILT SESSION for user:', session.user.id);
           }
         }
         
-        console.log('📋 SESSION CREATED:', {
-          userId: session.user.id,
-          twitterId: session.user.twitterId,
-          credits: session.user.credits
-        });
+        // Ensure session always has required fields
+        if (!session.user.id && token?.id) {
+          session.user.id = token.id;
+        }
+        if (!session.user.twitterId && token?.twitterId) {
+          session.user.twitterId = token.twitterId;
+        }
+        if (!session.user.credits) {
+          session.user.credits = 2; // Default credits
+        }
       
-      return session;
+        return session;
       } catch (error) {
         console.error('🔴 Error in session callback:', error);
+        // Return session with minimum required data to prevent complete failure
+        if (token?.id) {
+          session.user.id = token.id;
+        }
+        if (token?.twitterId) {
+          session.user.twitterId = token.twitterId;
+        }
+        if (!session.user.credits) {
+          session.user.credits = 2;
+        }
         return session;
       }
     },

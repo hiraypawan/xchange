@@ -30,24 +30,9 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Handle data access routes
+  // Skip API user routes - they have their own auth via getServerSession
   if (request.nextUrl.pathname.startsWith('/api/user/')) {
-    const userId = request.nextUrl.pathname.split('/')[3]; // Get user ID from URL
-    const session = request.cookies.get('next-auth.session-token');
-
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    try {
-      // Verify the user is accessing their own data
-      const sessionData = JSON.parse(atob(session.value.split('.')[1])); // Decode JWT payload
-      if (sessionData.id !== userId) {
-        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-      }
-    } catch (err) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
-    }
+    return NextResponse.next();
   }
 
   return NextResponse.next();

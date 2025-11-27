@@ -667,7 +667,7 @@ export default function AdminDashboard() {
                       <div className="text-sm text-gray-500">Activity level: {(user.engagementCount || 0) >= 50 ? 'High' : (user.engagementCount || 0) >= 10 ? 'Medium' : 'Low'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(user.createdAt || new Date())}</div>
+                      <div className="text-sm text-gray-900">{formatDate(user.createdAt || new Date().toISOString())}</div>
                       <div className="text-sm text-gray-500">{Math.floor((Date.now() - new Date(user.createdAt || Date.now()).getTime()) / (1000 * 60 * 60 * 24))} days ago</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -744,7 +744,7 @@ export default function AdminDashboard() {
                           <img className="h-8 w-8 rounded-full" src={user.image || '/default-avatar.png'} alt="" />
                           <div>
                             <p className="text-sm font-medium text-gray-900">{user.name || 'Unknown User'}</p>
-                            <p className="text-xs text-gray-500">Joined {formatDate(user.createdAt || new Date())}</p>
+                            <p className="text-xs text-gray-500">Joined {formatDate(user.createdAt || new Date().toISOString())}</p>
                           </div>
                         </div>
                         <div className="text-right">

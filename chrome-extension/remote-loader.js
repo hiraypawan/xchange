@@ -29,11 +29,11 @@ class RemoteLoader {
     if (isDevelopment) {
       // Try localhost first for development
       console.log('🔧 RemoteLoader: Using local development server');
-      return 'http://localhost:3001/api/extension-remote';
+      return 'http://localhost:3001/api/extension';
     } else {
       // Use production URL
       console.log('🌐 RemoteLoader: Using production server');
-      return 'https://xchangee.vercel.app/api/extension-remote';
+      return 'https://xchangee.vercel.app/api/extension';
     }
   }
 
@@ -42,9 +42,9 @@ class RemoteLoader {
    */
   async testConnectivity() {
     const urls = [
-      'http://localhost:3001/api/extension-remote/version',
-      'http://localhost:3000/api/extension-remote/version',
-      'https://xchangee.vercel.app/api/extension-remote/version'
+      'http://localhost:3001/api/extension/version',
+      'http://localhost:3000/api/extension/version',
+      'https://xchangee.vercel.app/api/extension/version'
     ];
     
     for (const url of urls) {

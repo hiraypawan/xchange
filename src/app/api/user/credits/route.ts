@@ -134,11 +134,17 @@ export async function GET(req: NextRequest) {
         }
         
         // Check one more time if user exists (race condition prevention)
+        const queryConditions = [
+          { twitterId: twitterId }
+        ];
+        
+        // Only add _id condition if session.user.id is a valid ObjectId
+        if (session.user.id && ObjectId.isValid(session.user.id)) {
+          queryConditions.push({ _id: new ObjectId(session.user.id) });
+        }
+        
         const doubleCheckUser = await db.collection('users').findOne({
-          $or: [
-            { twitterId: twitterId },
-            { _id: ObjectId.isValid(session.user.id) ? new ObjectId(session.user.id) : null }
-          ].filter(Boolean)
+          $or: queryConditions
         });
         
         if (doubleCheckUser) {

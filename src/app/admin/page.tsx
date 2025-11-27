@@ -183,10 +183,15 @@ export default function AdminDashboard() {
   };
 
   // Advanced filtering and sorting
-  const filteredUsers = users
+  const filteredUsers = (Array.isArray(users) ? users : [])
     .filter(user => {
-      const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           user.email.toLowerCase().includes(searchTerm.toLowerCase());
+      if (!user) return false;
+      
+      const userName = user.name || '';
+      const userEmail = user.email || '';
+      
+      const matchesSearch = userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           userEmail.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesStatus = filterStatus === 'all' ? true :
                            filterStatus === 'active' ? !user.isBanned :
@@ -195,14 +200,18 @@ export default function AdminDashboard() {
       return matchesSearch && matchesStatus;
     })
     .sort((a, b) => {
+      if (!a || !b) return 0;
+      
       switch (sortBy) {
         case 'credits':
-          return b.credits - a.credits;
+          return (b.credits || 0) - (a.credits || 0);
         case 'engagements':
-          return b.engagementCount - a.engagementCount;
+          return (b.engagementCount || 0) - (a.engagementCount || 0);
         case 'createdAt':
         default:
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          const dateA = new Date(a.createdAt || 0).getTime();
+          const dateB = new Date(b.createdAt || 0).getTime();
+          return dateB - dateA;
       }
     });
 
@@ -631,15 +640,15 @@ export default function AdminDashboard() {
                       <div className="flex items-center">
                         <img className="h-10 w-10 rounded-full" src={user.image || '/default-avatar.png'} alt="" />
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
+                          <div className="text-sm font-medium text-gray-900">{user.name || 'Unknown User'}</div>
+                          <div className="text-sm text-gray-500">{user.email || 'No email'}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-2">
                         <div>
-                          <div className="text-sm font-semibold text-gray-900">{user.credits} credits</div>
+                          <div className="text-sm font-semibold text-gray-900">{user.credits || 0} credits</div>
                           <div className="text-sm text-gray-500">Earned: {user.totalEarned || 0} | Spent: {user.totalSpent || 0}</div>
                         </div>
                         <button
@@ -654,12 +663,12 @@ export default function AdminDashboard() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{user.engagementCount} engagements</div>
-                      <div className="text-sm text-gray-500">Activity level: {user.engagementCount >= 50 ? 'High' : user.engagementCount >= 10 ? 'Medium' : 'Low'}</div>
+                      <div className="text-sm text-gray-900">{user.engagementCount || 0} engagements</div>
+                      <div className="text-sm text-gray-500">Activity level: {(user.engagementCount || 0) >= 50 ? 'High' : (user.engagementCount || 0) >= 10 ? 'Medium' : 'Low'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(user.createdAt)}</div>
-                      <div className="text-sm text-gray-500">{Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))} days ago</div>
+                      <div className="text-sm text-gray-900">{formatDate(user.createdAt || new Date())}</div>
+                      <div className="text-sm text-gray-500">{Math.floor((Date.now() - new Date(user.createdAt || Date.now()).getTime()) / (1000 * 60 * 60 * 24))} days ago</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -706,19 +715,21 @@ export default function AdminDashboard() {
               <h3 className="text-lg font-medium text-gray-900 mb-4">Credit Transaction History</h3>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-600">{filteredUsers.reduce((sum, u) => sum + u.totalEarned, 0).toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-green-600">{filteredUsers.reduce((sum, u) => sum + (u?.totalEarned || 0), 0).toLocaleString()}</p>
                   <p className="text-sm text-gray-600">Total Earned</p>
                 </div>
                 <div className="text-center p-4 bg-red-50 rounded-lg">
-                  <p className="text-2xl font-bold text-red-600">{filteredUsers.reduce((sum, u) => sum + u.totalSpent, 0).toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-red-600">{filteredUsers.reduce((sum, u) => sum + (u?.totalSpent || 0), 0).toLocaleString()}</p>
                   <p className="text-sm text-gray-600">Total Spent</p>
                 </div>
                 <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-600">{filteredUsers.reduce((sum, u) => sum + u.credits, 0).toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-blue-600">{filteredUsers.reduce((sum, u) => sum + (u?.credits || 0), 0).toLocaleString()}</p>
                   <p className="text-sm text-gray-600">Current Balance</p>
                 </div>
                 <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <p className="text-2xl font-bold text-purple-600">{(filteredUsers.reduce((sum, u) => sum + u.credits, 0) / filteredUsers.length).toFixed(1)}</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {filteredUsers.length > 0 ? (filteredUsers.reduce((sum, u) => sum + (u?.credits || 0), 0) / filteredUsers.length).toFixed(1) : '0.0'}
+                  </p>
                   <p className="text-sm text-gray-600">Avg per User</p>
                 </div>
               </div>
@@ -732,13 +743,13 @@ export default function AdminDashboard() {
                         <div className="flex items-center space-x-3">
                           <img className="h-8 w-8 rounded-full" src={user.image || '/default-avatar.png'} alt="" />
                           <div>
-                            <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                            <p className="text-xs text-gray-500">Joined {formatDate(user.createdAt)}</p>
+                            <p className="text-sm font-medium text-gray-900">{user.name || 'Unknown User'}</p>
+                            <p className="text-xs text-gray-500">Joined {formatDate(user.createdAt || new Date())}</p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-medium text-gray-900">{user.credits} credits</p>
-                          <p className="text-xs text-gray-500">+{user.totalEarned} earned</p>
+                          <p className="text-sm font-medium text-gray-900">{user.credits || 0} credits</p>
+                          <p className="text-xs text-gray-500">+{user.totalEarned || 0} earned</p>
                         </div>
                       </div>
                     ))}
@@ -756,30 +767,30 @@ export default function AdminDashboard() {
                   <div className="bg-gray-200 rounded-full h-4">
                     <div 
                       className="bg-red-500 h-4 rounded-full" 
-                      style={{width: `${(filteredUsers.filter(u => u.credits <= 10).length / filteredUsers.length) * 100}%`}}
+                      style={{width: `${filteredUsers.length > 0 ? (filteredUsers.filter(u => u && (u.credits || 0) <= 10).length / filteredUsers.length) * 100 : 0}%`}}
                     ></div>
                   </div>
-                  <p className="text-sm text-gray-600">{filteredUsers.filter(u => u.credits <= 10).length} users ({((filteredUsers.filter(u => u.credits <= 10).length / filteredUsers.length) * 100).toFixed(1)}%)</p>
+                  <p className="text-sm text-gray-600">{filteredUsers.filter(u => u && (u.credits || 0) <= 10).length} users ({filteredUsers.length > 0 ? ((filteredUsers.filter(u => u && (u.credits || 0) <= 10).length / filteredUsers.length) * 100).toFixed(1) : '0.0'}%)</p>
                 </div>
                 <div className="space-y-2">
                   <h4 className="font-medium text-gray-700">Medium Balance (11-50)</h4>
                   <div className="bg-gray-200 rounded-full h-4">
                     <div 
                       className="bg-yellow-500 h-4 rounded-full" 
-                      style={{width: `${(filteredUsers.filter(u => u.credits > 10 && u.credits <= 50).length / filteredUsers.length) * 100}%`}}
+                      style={{width: `${filteredUsers.length > 0 ? (filteredUsers.filter(u => u && (u.credits || 0) > 10 && (u.credits || 0) <= 50).length / filteredUsers.length) * 100 : 0}%`}}
                     ></div>
                   </div>
-                  <p className="text-sm text-gray-600">{filteredUsers.filter(u => u.credits > 10 && u.credits <= 50).length} users ({((filteredUsers.filter(u => u.credits > 10 && u.credits <= 50).length / filteredUsers.length) * 100).toFixed(1)}%)</p>
+                  <p className="text-sm text-gray-600">{filteredUsers.filter(u => u && (u.credits || 0) > 10 && (u.credits || 0) <= 50).length} users ({filteredUsers.length > 0 ? ((filteredUsers.filter(u => u && (u.credits || 0) > 10 && (u.credits || 0) <= 50).length / filteredUsers.length) * 100).toFixed(1) : '0.0'}%)</p>
                 </div>
                 <div className="space-y-2">
                   <h4 className="font-medium text-gray-700">High Balance (50+)</h4>
                   <div className="bg-gray-200 rounded-full h-4">
                     <div 
                       className="bg-green-500 h-4 rounded-full" 
-                      style={{width: `${(filteredUsers.filter(u => u.credits > 50).length / filteredUsers.length) * 100}%`}}
+                      style={{width: `${filteredUsers.length > 0 ? (filteredUsers.filter(u => u && (u.credits || 0) > 50).length / filteredUsers.length) * 100 : 0}%`}}
                     ></div>
                   </div>
-                  <p className="text-sm text-gray-600">{filteredUsers.filter(u => u.credits > 50).length} users ({((filteredUsers.filter(u => u.credits > 50).length / filteredUsers.length) * 100).toFixed(1)}%)</p>
+                  <p className="text-sm text-gray-600">{filteredUsers.filter(u => u && (u.credits || 0) > 50).length} users ({filteredUsers.length > 0 ? ((filteredUsers.filter(u => u && (u.credits || 0) > 50).length / filteredUsers.length) * 100).toFixed(1) : '0.0'}%)</p>
                 </div>
               </div>
             </div>

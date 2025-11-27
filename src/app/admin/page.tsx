@@ -133,28 +133,52 @@ export default function AdminDashboard() {
   const handleAddCredits = async () => {
     if (!selectedUser || !creditAmount) return;
 
+    const amount = parseInt(creditAmount);
+    if (isNaN(amount) || amount === 0) {
+      alert('Please enter a valid credit amount');
+      return;
+    }
+
     try {
       const response = await fetch('/api/admin/users/credits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           userId: selectedUser.id, 
-          amount: parseInt(creditAmount),
+          amount: amount,
           type: 'admin_adjustment'
         })
       });
 
-      if (response.ok) {
-        const newCredits = selectedUser.credits + parseInt(creditAmount);
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // Update the users list with the new credit balance
         setUsers(users.map(user => 
-          user.id === selectedUser.id ? { ...user, credits: newCredits } : user
+          user.id === selectedUser.id ? { ...user, credits: result.newBalance } : user
         ));
+        
+        // If user details modal is open, update the selected user too
+        if (showUserDetails) {
+          setSelectedUser({ ...selectedUser, credits: result.newBalance });
+        }
+        
         setShowCreditModal(false);
         setCreditAmount('');
-        setSelectedUser(null);
+        
+        // Show success message
+        alert(`Credits ${amount > 0 ? 'added' : 'removed'} successfully! New balance: ${result.newBalance} credits`);
+        
+        // If user details modal is not open, clear selected user
+        if (!showUserDetails) {
+          setSelectedUser(null);
+        }
+      } else {
+        alert(`Error: ${result.error || 'Failed to adjust credits'}`);
       }
     } catch (error) {
-      console.error('Error adding credits:', error);
+      console.error('Error adjusting credits:', error);
+      alert('Failed to adjust credits. Please try again.');
     }
   };
 
@@ -613,8 +637,21 @@ export default function AdminDashboard() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{user.credits} credits</div>
-                      <div className="text-sm text-gray-500">Earned: {user.totalEarned} | Spent: {user.totalSpent}</div>
+                      <div className="flex items-center space-x-2">
+                        <div>
+                          <div className="text-sm font-semibold text-gray-900">{user.credits} credits</div>
+                          <div className="text-sm text-gray-500">Earned: {user.totalEarned || 0} | Spent: {user.totalSpent || 0}</div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setShowUserDetails(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-900 text-xs px-2 py-1 border border-blue-300 rounded"
+                        >
+                          History
+                        </button>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{user.engagementCount} engagements</div>
@@ -755,19 +792,32 @@ export default function AdminDashboard() {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <h3 className="text-lg font-bold text-gray-900 mb-4">
-              Add Credits to {selectedUser.name}
+              Adjust Credits for {selectedUser.name}
             </h3>
             <div className="mb-4">
+              <div className="text-sm text-gray-600 mb-2">
+                Current Balance: <span className="font-semibold">{selectedUser.credits} credits</span>
+              </div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Credit Amount
+                Credit Amount (+ to add, - to remove)
               </label>
               <input
                 type="number"
                 value={creditAmount}
                 onChange={(e) => setCreditAmount(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter amount (can be negative to remove)"
+                placeholder="Enter amount (e.g., 10 or -5)"
               />
+              {creditAmount && !isNaN(parseInt(creditAmount)) && (
+                <div className="mt-2 text-sm">
+                  <span className="text-gray-600">New balance will be: </span>
+                  <span className={`font-semibold ${
+                    selectedUser.credits + parseInt(creditAmount) < 0 ? 'text-red-600' : 'text-green-600'
+                  }`}>
+                    {selectedUser.credits + parseInt(creditAmount)} credits
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex justify-end space-x-4">
               <button
@@ -783,9 +833,129 @@ export default function AdminDashboard() {
               <button
                 onClick={handleAddCredits}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                disabled={!creditAmount || parseInt(creditAmount) === 0}
               >
-                Add Credits
+                {parseInt(creditAmount || '0') > 0 ? 'Add Credits' : 'Remove Credits'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Details Modal */}
+      {showUserDetails && selectedUser && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-10 mx-auto p-6 border w-4/5 max-w-4xl shadow-lg rounded-md bg-white">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">
+                User Details: {selectedUser.name}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowUserDetails(false);
+                  setSelectedUser(null);
+                  setUserTransactions([]);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-semibold text-blue-900 mb-2">Current Credits</h4>
+                <p className="text-2xl font-bold text-blue-600">{selectedUser.credits}</p>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h4 className="font-semibold text-green-900 mb-2">Total Earned</h4>
+                <p className="text-2xl font-bold text-green-600">{selectedUser.totalEarned || 0}</p>
+              </div>
+              <div className="bg-red-50 p-4 rounded-lg">
+                <h4 className="font-semibold text-red-900 mb-2">Total Spent</h4>
+                <p className="text-2xl font-bold text-red-600">{selectedUser.totalSpent || 0}</p>
+              </div>
+            </div>
+
+            <div className="flex space-x-4 mb-6">
+              <button
+                onClick={() => {
+                  setShowUserDetails(false);
+                  setShowCreditModal(true);
+                }}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+              >
+                Adjust Credits
+              </button>
+              <button
+                onClick={() => handleBanUser(selectedUser.id, !selectedUser.isBanned)}
+                className={`px-4 py-2 rounded-lg ${
+                  selectedUser.isBanned 
+                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                    : 'bg-yellow-600 text-white hover:bg-yellow-700'
+                }`}
+              >
+                {selectedUser.isBanned ? 'Unban User' : 'Ban User'}
+              </button>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-semibold text-gray-900 mb-4">Credit Transaction History</h4>
+              <div className="max-h-60 overflow-y-auto">
+                {userTransactions.length > 0 ? (
+                  <div className="space-y-2">
+                    {userTransactions.map((transaction: any, index) => (
+                      <div key={index} className="bg-white p-3 rounded border">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className={`font-semibold ${
+                              transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {transaction.amount > 0 ? '+' : ''}{transaction.amount} credits
+                            </span>
+                            <span className="ml-2 text-sm text-gray-600">
+                              {transaction.type || 'adjustment'}
+                            </span>
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {new Date(transaction.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          {transaction.description || 'Credit adjustment'}
+                        </div>
+                        {transaction.adminName && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            By: {transaction.adminName}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-500 py-8">
+                    <p>No transaction history available</p>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(`/api/user/transactions?userId=${selectedUser.id}`);
+                          if (response.ok) {
+                            const transactions = await response.json();
+                            setUserTransactions(transactions);
+                          }
+                        } catch (error) {
+                          console.error('Error loading transactions:', error);
+                        }
+                      }}
+                      className="mt-2 text-blue-600 hover:text-blue-800 text-sm"
+                    >
+                      Load Transaction History
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

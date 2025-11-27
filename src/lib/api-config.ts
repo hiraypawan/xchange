@@ -4,30 +4,20 @@
  */
 
 export const getApiBaseUrl = () => {
-  // Check if we're in development mode
-  if (typeof window !== 'undefined') {
-    // Client-side detection
-    const isDev = 
-      (window.location.hostname === 'localhost' || 
-       window.location.hostname === '127.0.0.1') &&
-      localStorage.getItem('xchangee_force_local_api') !== 'false';
-      
-    // Only use local API if explicitly forced or we're actually on localhost
-    if (isDev && localStorage.getItem('xchangee_force_local_api') === 'true') {
-      return 'http://localhost:3001';
-    }
-  }
-  
-  // Server-side or production - always use current domain unless explicitly local
-  const isExplicitlyLocal = process.env.NODE_ENV === 'development' && 
-    process.env.NEXT_PUBLIC_USE_LOCAL_API === 'true';
-  
-  return isExplicitlyLocal ? 'http://localhost:3001' : '';
+  // This function should simply return the base path for the API.
+  // For Vercel deployments, this is an empty string, as API routes are relative to the domain.
+  // For local development, you might point to a different port if your frontend and backend are separate.
+  // Based on your setup, an empty string is the correct and simplest value.
+  return '';
 };
 
 export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
   const baseUrl = getApiBaseUrl();
-  const url = `${baseUrl}${endpoint}`;
+  
+  // Ensure the URL is always absolute from the domain root
+  // If baseUrl is empty and endpoint starts with /, use the endpoint as-is
+  // This ensures /api/user/stats becomes https://domain.com/api/user/stats, not https://domain.com/dashboard/api/user/stats
+  const url = baseUrl ? `${baseUrl}${endpoint}` : endpoint;
   
   const defaultOptions: RequestInit = {
     headers: {
@@ -42,10 +32,9 @@ export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
   console.log(`🌐 API Call: ${url}`, {
     baseUrl,
     endpoint,
-    hostname: typeof window !== 'undefined' ? window.location.hostname : 'server',
-    forceLocal: typeof window !== 'undefined' ? localStorage.getItem('xchangee_force_local_api') : 'N/A'
+    hostname: typeof window !== 'undefined' ? window.location.hostname : 'server'
   });
-  
+
   try {
     const response = await fetch(url, defaultOptions);
     
@@ -53,7 +42,7 @@ export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`❌ API Error Response:`, errorText);
+      console.error(`❌ API Error for ${url}:`, errorText);
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
@@ -61,16 +50,5 @@ export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
   } catch (error) {
     console.error(`❌ API call failed for ${url}:`, error);
     throw error;
-  }
-};
-
-// Helper function to force local API usage (for testing)
-export const forceLocalApi = (enable: boolean = true) => {
-  if (typeof window !== 'undefined') {
-    if (enable) {
-      localStorage.setItem('xchangee_force_local_api', 'true');
-    } else {
-      localStorage.removeItem('xchangee_force_local_api');
-    }
   }
 };

@@ -424,30 +424,6 @@ export default function AdminDashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tab Navigation */}
-        <div className="border-b border-gray-200 mb-8">
-          <nav className="-mb-px flex space-x-8">
-            {[
-              { id: 'overview', name: 'Overview', icon: '📊' },
-              { id: 'users', name: 'User Management', icon: '👥' },
-              { id: 'analytics', name: 'Analytics', icon: '📈' },
-              { id: 'transactions', name: 'Credit History', icon: '💰' }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <span>{tab.icon}</span>
-                <span>{tab.name}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
 
         {/* Overview Tab */}
         {activeTab === 'overview' && (
@@ -604,18 +580,20 @@ export default function AdminDashboard() {
             <div className="flex flex-col space-y-4">
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-gray-900">User Management</h2>
-                <button
-                  onClick={loadAdminData}
-                  className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
-                >
-                  Refresh
-                </button>
-                <button
-                  onClick={handleCleanupDuplicates}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
-                >
-                  Clean Duplicates
-                </button>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={loadAdminData}
+                    className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+                  >
+                    Refresh
+                  </button>
+                  <button
+                    onClick={handleCleanupDuplicates}
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                  >
+                    Clean Duplicates
+                  </button>
+                </div>
               </div>
               
               {/* Advanced Filters */}

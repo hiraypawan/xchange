@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { connectToDatabase } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 // Check if user is admin
 function isAdmin(session: any) {
@@ -28,24 +30,49 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
     }
 
-    // TODO: Replace with actual database operations
-    /*
+    const { db } = await connectToDatabase();
+    
+    // Convert userId to ObjectId if it's a string
+    const userObjectId = typeof userId === 'string' ? new ObjectId(userId) : userId;
+
+    // Get user data before deletion for logging
+    const userToDelete = await db.collection('users').findOne({ _id: userObjectId });
+    if (!userToDelete) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
     // Log admin action before deletion
-    await prisma.adminLog.create({
-      data: {
-        adminId: session.user.id,
-        action: 'DELETE_USER',
-        targetUserId: userId,
-        details: `User account deleted by admin`,
-        timestamp: new Date()
-      }
+    await db.collection('admin_logs').insertOne({
+      adminId: session.user?.id || session.user?.name,
+      adminName: session.user?.name,
+      action: 'DELETE_USER',
+      targetUserId: userObjectId,
+      details: `User account deleted by admin ${session.user?.name}`,
+      metadata: {
+        deletedUserName: userToDelete.name,
+        deletedUserEmail: userToDelete.email,
+        deletedUserCredits: userToDelete.credits || 0,
+        deletedUserEngagements: userToDelete.engagementCount || 0
+      },
+      createdAt: new Date(),
+      timestamp: new Date()
     });
 
-    // Delete user and all related data (cascading)
-    await prisma.user.delete({
-      where: { id: userId }
-    });
-    */
+    // Delete user and all related data
+    const deleteOperations = [
+      // Delete user
+      db.collection('users').deleteOne({ _id: userObjectId }),
+      // Delete user's credit transactions
+      db.collection('credit_transactions').deleteMany({ userId: userObjectId }),
+      // Delete user's engagements
+      db.collection('engagements').deleteMany({ userId: userObjectId }),
+      // Delete user's posts
+      db.collection('posts').deleteMany({ userId: userObjectId }),
+      // Delete user's sessions if any
+      db.collection('sessions').deleteMany({ userId: userObjectId.toString() })
+    ];
+
+    await Promise.all(deleteOperations);
 
     console.log(`Admin ${session.user?.name} deleted user ${userId}`);
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { connectToDatabase } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 // Check if user is admin
 function isAdmin(session: any) {
@@ -23,28 +25,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
     }
 
-    // TODO: Replace with actual database update
-    /*
-    await prisma.user.update({
-      where: { id: userId },
-      data: { 
-        isBanned: ban,
-        bannedAt: ban ? new Date() : null,
-        bannedBy: ban ? session.user.id : null
+    const { db } = await connectToDatabase();
+    
+    // Convert userId to ObjectId if it's a string
+    const userObjectId = typeof userId === 'string' ? new ObjectId(userId) : userId;
+
+    // Check if user exists
+    const currentUser = await db.collection('users').findOne({ _id: userObjectId });
+    if (!currentUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Update user ban status
+    const updateResult = await db.collection('users').updateOne(
+      { _id: userObjectId },
+      { 
+        $set: {
+          isBanned: ban,
+          bannedAt: ban ? new Date() : null,
+          bannedBy: ban ? session.user?.id || session.user?.name : null,
+          lastModified: new Date()
+        }
       }
-    });
+    );
+
+    if (updateResult.matchedCount === 0) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
 
     // Log admin action
-    await prisma.adminLog.create({
-      data: {
-        adminId: session.user.id,
-        action: ban ? 'BAN_USER' : 'UNBAN_USER',
-        targetUserId: userId,
-        details: `User ${ban ? 'banned' : 'unbanned'} by admin`,
-        timestamp: new Date()
-      }
+    await db.collection('admin_logs').insertOne({
+      adminId: session.user?.id || session.user?.name,
+      adminName: session.user?.name,
+      action: ban ? 'BAN_USER' : 'UNBAN_USER',
+      targetUserId: userObjectId,
+      details: `User ${ban ? 'banned' : 'unbanned'} by admin ${session.user?.name}`,
+      metadata: {
+        ban,
+        targetUserName: currentUser.name,
+        targetUserEmail: currentUser.email
+      },
+      createdAt: new Date(),
+      timestamp: new Date()
     });
-    */
 
     console.log(`Admin ${session.user?.name} ${ban ? 'banned' : 'unbanned'} user ${userId}`);
 

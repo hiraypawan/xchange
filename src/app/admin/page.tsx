@@ -16,7 +16,7 @@ export default function AdminDashboard() {
   const [creditAmount, setCreditAmount] = useState('');
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [bulkAction, setBulkAction] = useState('');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('users');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [showUserDetails, setShowUserDetails] = useState(false);
   const [userTransactions, setUserTransactions] = useState([]);
@@ -54,6 +54,8 @@ export default function AdminDashboard() {
       console.log('Loading real admin data from API...');
       
       try {
+        console.log('🔄 Loading admin data...');
+        
         const [statsResponse, usersResponse] = await Promise.all([
           fetch('/api/admin/stats'),
           fetch('/api/admin/users')
@@ -62,23 +64,56 @@ export default function AdminDashboard() {
         let realStats = null;
         let realUsers = [];
 
-        if (statsResponse.ok) {
-          realStats = await statsResponse.json();
-          setStats(realStats);
-          console.log('✅ Real stats loaded:', realStats);
-        } else {
-          const errorText = await statsResponse.text();
-          console.error('❌ Failed to load stats:', statsResponse.status, errorText);
+        // Handle stats response
+        try {
+          if (statsResponse.ok) {
+            realStats = await statsResponse.json();
+            setStats(realStats);
+            console.log('✅ Real stats loaded:', realStats);
+          } else {
+            const errorText = await statsResponse.text();
+            console.error('❌ Failed to load stats:', statsResponse.status, errorText);
+          }
+        } catch (statsError) {
+          console.error('❌ Error processing stats response:', statsError);
         }
 
-        if (usersResponse.ok) {
-          realUsers = await usersResponse.json();
-          setUsers(realUsers);
-          console.log('✅ Real users loaded:', realUsers.length, 'users');
-          console.log('First few users:', realUsers.slice(0, 2));
-        } else {
-          const errorText = await usersResponse.text();
-          console.error('❌ Failed to load users:', usersResponse.status, errorText);
+        // Handle users response
+        try {
+          if (usersResponse.ok) {
+            const responseData = await usersResponse.json();
+            
+            // Ensure we have an array of users
+            if (Array.isArray(responseData)) {
+              realUsers = responseData;
+              console.log('✅ Real users loaded:', realUsers.length, 'users');
+              
+              // Validate user data
+              const validUsers = realUsers.filter(user => 
+                user && typeof user === 'object' && 
+                'id' in user && 
+                'name' in user
+              );
+              
+              console.log('✅ Valid users:', validUsers.length);
+              if (validUsers.length !== realUsers.length) {
+                console.warn('⚠️ Some users were filtered out due to invalid data');
+              }
+              
+              setUsers(validUsers);
+              console.log('📋 First few users:', validUsers.slice(0, 2));
+            } else {
+              console.error('❌ Invalid users response format:', responseData);
+              setUsers([]);
+            }
+          } else {
+            const errorText = await usersResponse.text();
+            console.error('❌ Failed to load users:', usersResponse.status, errorText);
+            setUsers([]);
+          }
+        } catch (usersError) {
+          console.error('❌ Error processing users response:', usersError);
+          setUsers([]);
         }
 
         setLoading(false);
@@ -274,15 +309,26 @@ export default function AdminDashboard() {
     }
   };
 
-  console.log('Admin page render state:', { 
+  // Debug logging
+  console.log('🔍 Admin page render state:', { 
     status, 
     loading, 
     userIsAdmin, 
     session: !!session, 
     activeTab,
     hasStats: !!stats,
-    userCount: users.length 
+    userCount: users.length,
+    filteredUserCount: filteredUsers.length,
+    searchTerm: searchTerm || 'none',
+    filterStatus
   });
+
+  // Log complete user data if available
+  if (users.length > 0) {
+    console.log('📊 First user data:', users[0]);
+    console.log('👥 Total users:', users.length);
+    console.log('🔎 Filtered users:', filteredUsers.length);
+  }
 
   if (status === 'loading' || loading) {
     return (
@@ -328,6 +374,50 @@ export default function AdminDashboard() {
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
             >
               Back to Dashboard
+            </button>
+          </div>
+
+          {/* Navigation */}
+          <div className="flex space-x-8 mt-4 border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`pb-4 px-2 ${
+                activeTab === 'overview'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              📊 Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`pb-4 px-2 ${
+                activeTab === 'users'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              👥 User Management
+            </button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`pb-4 px-2 ${
+                activeTab === 'analytics'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              📈 Analytics
+            </button>
+            <button
+              onClick={() => setActiveTab('credits')}
+              className={`pb-4 px-2 ${
+                activeTab === 'credits'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              💰 Credit History
             </button>
           </div>
         </div>
